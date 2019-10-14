@@ -1,0 +1,14 @@
+Latex有一个诡异的问题, 如果在\section{}里面给的是中文，那么加入\tableofcontents以后，就会出现编译错误
+
+\section{中文}
+
+LaTeX编译的时候报错如下：
+
+! Package inputenc Error: Unicode char \u 8:中 not set up for use with LaTeX.
+
+生成PDF后中文是不显示的。
+同样有一个诡异的方法解决这个问题：在文档的末尾加上
+
+\newpage
+
+居然就搞定了

@@ -1,0 +1,66 @@
+\documentclass[draft]{article}
+
+\usepackage{mdwlist}
+\usepackage{CJKutf8}
+\usepackage{listings}
+
+\begin{document}
+\begin{CJK*}{UTF8}{gbsn}
+
+$\backslash$
+$backslash$
+$\\$
+
+\newcommand{\tabincell}[2]{\begin{tabular}{@{}#1@{}}#2\end{tabular}}
+%然后使用&\tabincell{c}{}&就可以在表格中自动换行
+
+%比如这么用
+\begin{tabular}{|c|c|}
+\hline
+ 1 & the first line \\
+\hline
+ 2 & \tabincell{c}{haha\\ heihei\\zeze \\fgf \\asgr} \\
+\hline
+\end{tabular}
+
+% 当有三列的时候,要指定{l c r},否则编译会报错
+% 当有四列时,就要指定4个对齐方向,如{l c c r}
+\begin{tabular}{l c c r}
+    1 & 2 & 3 & 4 \\
+    4 & 5 & 6 & 5 \\
+\end{tabular}
+
+\begin{lstlisting}[language=C]
+int main(int argc, char ** argv)
+{
+
+printf("Hello world!\n");
+
+return 0;
+}
+\end{lstlisting}
+
+\begin{basedescript}{\desclabelstyle{\nextlinelabel}\desclabelwidth{10em}}
+\item [Short label] This is a short item, although it has quite a lot of text attached to it.
+\item [Slightly longer label text] This is a rather longer piece of text, with a correspondingly slightly longer label.
+\end{basedescript}
+\medskip
+\begin{basedescript}{\desclabelstyle{\multilinelabel}\desclabelwidth{10em}}
+\item [Short label] This is a short item, although it has quite a lot of text attached to it.
+\item [Slightly longer label text] This is a rather longer piece of text, with a correspondingly slightly longer label.
+\end{basedescript}
+\medskip
+\begin{basedescript}{\desclabelstyle{\pushlabel}}
+\item [Short label] This is a short item, although it has quite a lot of text attached to it.
+\item [Slightly longer label text] This is a rather longer piece of text, with a correspondingly slightly longer label.
+\end{basedescript}
+
+\begin{description*}
+    \item[a] aaaaaaaaaaaaaaa
+    \item[b] bbbbbbbbb
+    \item[c]
+    \item[d] cccccccddddddd
+\end{description*}
+
+\end{CJK*}
+\end{document}

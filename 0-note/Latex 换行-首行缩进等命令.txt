@@ -1,0 +1,84 @@
+LaTeX要实现首行缩进也很简单,
+
+在导言区加入宏包首行 \usepackage{indentfirst} 就可以了.
+
+使用命令 设置 缩进的距离 \setlength{\parindent}{2em}  ,
+
+这里的 2em 表示缩进 2 个字符位置.
+
+实际使用发现, 即使添加了  \usepackage{indentfirst}, 使用 "\\" 来换行之后,新行不会缩进.
+
+如果想要新行能缩进,可以使用 "\par" 命令来分段,这样在换行的同时,首行也会缩进.
+
+但是LaTeX 默认的第一段不是首行缩进的, 这不符合我们的中文习惯.
+
+如果有一个段落你不想首行缩进, 在段落前使用命令 \noindent .
+
+同样的, 你要保证这一段是首行缩进, 使用命令 \indent, 如果使用了 CJK 宏包, 还可以用\CJKindent.
+
+使用\CJKintent时,不能使用不支持的中文字体, 否则会提示 "! Undefined control sequence. l.11 \CJKindent".
+
+例如执行sudo apt-get install latex-cjk-chinese后,默认支持 gbsn字体, 而不支持 "song" 这个字体.
+
+当指定song字体, 即如下形式时, 使用latex编译就会报上面的错:
+
+\begin{CJK}{UTF8}{song}
+
+\CJKindent
+
+而写为
+
+\begin{CJK}{UTF8}{gbsn}
+
+\CJKindent
+
+使用 latex 编译就不会报错.
+
+=======================================================================
+
+换行命令
+
+\\：换行。
+\\[offset]：换行，并且与下一行的行间距为原来行间距+offset。
+\newline：与\\相同。
+\linebreak：强制换行，与\newline的区别为\linebreak的当前行分散对齐。
+
+分段命令
+
+\par：分段。
+
+分页命令
+
+\newpage：分页命令。
+\clearpage：和 \newpage 类似。我们在使用 CJK 环境时会加入 \clearpage 在环境末尾。
+
+首行缩进
+
+最朴实的方法是设置 \parindent 的长度：\setlength{\parindent}{长度}，如果想要首行缩进两个汉字距离，则\setlength{\parindent}{2em}。
+如果在CJK环境当中，则可以在\begin{CJK}{GBK}{song}后面紧跟 \CJKindent 实现首行缩进。
+默认第一段不首行缩进，如果想让第一段首行缩进，则可以使用 \usepackage{indentfirst}。
+如果想让某一段不首行缩进，则可以在该段前加上 \noindent。
+如果想让整篇文章都首行不缩进，则：\setlength{\parindent}{0pt}
+注意：在 LaTeX 中，一个回车表示一个空格，两个回车表示一个分段。
+
+通常实践中，我们都是按照下面的模板进行扩充的：
+
+\documentclass[12pt,a4paper]{article}
+\usepackage{CJK}    %导入CJK宏包
+\setlength{\parskip}{10pt}  % 设置部分段落间隔
+\begin{document}
+\begin{CJK*}{GBK}{song}  %开始CJK环境
+\CJKtilde   %重定义"~"
+\CJKindent  %设置首段缩进
+
+This paper reflects on the history and development of the LaTeX Project Public License (LPPL) .\par %此处为分段
+
+\noindent(此处不首行缩进)In late June, the TUG 2010 conference was held in San Francisco to great success.
+
+\clearpage
+\end{CJK*}       %结束CJK环境
+\end{document}
+
+\setlength{\parskip}{10pt}：段落间隔是 \lineskip 和 \parskip 之和，这里设置 \parskip 的值是为了增加段落的间隔。
+
+\CJKindent：在 CJK 环境中首行缩进。

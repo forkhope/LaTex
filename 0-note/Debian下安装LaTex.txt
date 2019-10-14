@@ -1,0 +1,82 @@
+第一步，安装基本的LaTeX环境：
+
+sudo apt-get install texlive
+
+为了避免缺少一些宏包 (例如插入源代码的 listings 宏包), 最好是安装 texlive-full, 下载完整的LaTeX环境.
+
+第二步，安装中文字体包。字体包中包含bsmi，bkai，gkai，gbsn四种中文字体。bsmi和bkai是Big5编码的宋体和楷体字；后两者gkai和gbsn分别处理简体中文楷体字和宋体字。
+
+sudo apt-get install latex-cjk-chinese
+
+至此，基本的配置就完成了。此时，我们可以新建一个tex文件并输入以下测试内容。正常情况下，编译这个tex文件就能在文档中显示中文了。值得说 明的一点是，这些字体是不支持斜体格式的，但支持加粗。其实，在正式的中文排版中，如果要强调某些部分，是通过使用仿宋体或者楷体来实现，而不是像英文中 那样通过斜体来实现。
+
+\documentclass{article}
+\usepackage{CJKutf8}
+\begin{document}
+\begin{CJK}{UTF8}{gkai}
+这是一个楷体中文测试，处理简体字。
+\end{CJK}
+\begin{CJK}{UTF8}{gbsn}
+这是一个宋体中文测试，处理简体字。
+\end{CJK}
+\begin{CJK}{UTF8}{bkai}
+這是一個big5編碼的楷體中文測試，處理繁體文字。
+\end{CJK}
+\begin{CJK}{UTF8}{bsmi}
+這是一個个big5編碼的明體中文測試，處理繁體文字。
+\end{CJK}
+\end{document}
+
+接下来，还要针对中文排版进行进一步的设置。
+
+首先，设置每一行的首行缩进。
+
+\usepackage{indentfirst}
+\setlength{\parindent}{2em}
+
+其次，中文文档习惯于使用“目录”、“插图目录”、“表格目录”、“参考文献”、“摘要”、“索引”、“表格”、“图”等字样作为文章特殊部分的标题，而 LaTeX 对于这些部分的标题默认是使用英文的，因此可以通过重定义宏的方式将其重定义为中文字样。
+
+\renewcommand{\contentsname}{目录}
+\renewcommand{\chaptername}[2]{\Huge{第{\thechapter}章}}
+\renewcommand{\listfigurename}{插图目录}
+\renewcommand{\listtablename}{表格目录}
+\renewcommand{\refname}{参考文献}
+\renewcommand{\abstractname}{摘要}
+\renewcommand{\indexname}{索引}
+\renewcommand{\tablename}{表}
+\renewcommand{\figurename}{图}
+
+写到这里，用LaTeX来进行日常的中文排版就不成问题了。最后，希望大家都能喜欢LaTeX这个功能强大的排版软件。
+
+为了避免使用中文导致编译出错,最好将\begin{CJK}[UTF8]{gbsn}放在 \usepackage{CJKutf8} 后面，其他语句前面。
+
+中文目录
+
+我们可以通过\renewcommand{\contentsname}{目录}这条语句将最后文章中“Contents”这个单词改成“目录”二 字，毕竟中文么，但是这样又有一个问题就是生成的目录为空，也就是只能看到“目录”二字，却看不到内容，解决方法是在最后的\end{CJK}前加上一条 语句\newpage，当然了，这样还是可能不成功的，你可能需要编译两次才能正确生成目录。
+
+日期
+
+最后是日期问题，一般都是自动生成的日期，但是我们想该成一个特定日期应该怎么该了，自己试了半天也没搞定，测试了如\date{2011\03 \01},\date{2011\\03\\01},\date{03\01\2011}都不行，原来应该是\date{2011年3月}，也就是原样输 出啦。
+
+------------------------------------->>>>>>>>>>>>>>>>>
+安装了这些软件包以后，测试一下Latex是否可以正常工作。 编写下面的Latex测试文件：
+\documentclass{article}
+\begin{document}
+Hello,\LaTeXe
+\end{document}
+
+将上面的内容存为hello.tex，运行下面的命令：
+$ latex hello.tex
+
+如果一切正常，则会生成一个Hello.dvi的文件，可以使用xdvi或是其他的相应工具打开，看到生成后的效果
+
+下面测试支持中文的情况了，使用下面的测试文件：
+\documentclass{article}
+\usepackage{CJKutf8}
+\begin{document}
+\begin{CJK*}{UTF8}{gbsn}
+你好，\LaTeXe
+\end{CJK*}
+\end{document}
+
+保存退出，运行latex命令，查看生成的结果。

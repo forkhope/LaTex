@@ -1,0 +1,306 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage{CJKutf8}
+\usepackage{indentfirst}
+\usepackage{graphicx}
+
+\begin{document}
+\begin{CJK}{UTF8}{gbsn}
+    \title{Android音视频传输方案}
+    \author{John Lee}
+    \maketitle
+
+    \section{音视频传输需求}
+    具体要求：
+    \begin{quote}
+        提供主机以及手持端的APK及源码。
+        搭建好云端或者服务器，并提供维护指南及源代码。
+    \end{quote}
+    \begin{enumerate}
+        \item 场景中设备分为主机和手持设备，主机配备有摄像头，视频传送方向为从主机向手持设备单向传送，命令类内容和语音可双向传送，传送方式通过主机和手持设备上安装的APK。
+        \item 主机常态连接WIFI，但不是固定IP，手持设备也通过WIFI连接，但有可能和主机在局域网内，也可能处于外网。
+        \item 主机与手持设备均以一个固有ID登陆，通过云端或者后台服务器建立一对一连接。
+        \item 手持设备APK可以请求主机的摄像机的音视频流，在手持端进行播放，手持APP也可以通过网络向主机端发送手持端的语音。
+    \end{enumerate}
+
+    \section{技术点}
+    \begin{itemize}
+        \item 如何实时采集主机的音视频流，如何实时采集手持设备的音频流？
+        \item 如何处理采集的音视频流，如是否进行编码压缩、采用哪种编码格式？
+        \item 采用哪种网络协议来传输音视频流、命令类内容，如何标识网络数据中的音视频流、命令类内容？
+        \item 手持设备如何解码、实时显示接收到的音视频流？
+    \end{itemize}
+
+    \section{框架流程图}
+    \begin{center}
+        \includegraphics[width=\textwidth]{1-diagram/framework.png}
+    \end{center}
+
+    \section{实时采集音视频流}
+    在主机端，有如下方式实时采集音视频流：
+    \begin{itemize}
+        \item 使用\emph{Android Camera}类的setPreviewCallback()函数，指定\\
+            onPreviewFrame()接口，实时获取每一帧视频流数据。
+        \item 使用\emph{Adnroid AudioRecord}类采集音频。
+        \item 使用\emph{Android MediaRecorder}类同步采集视频和音频流。
+        \item 使用\emph{FFmpeg}或\emph{getStreamer()}等获取Camera视频。
+    \end{itemize}
+
+    \subsection{方案一：使用Camera和AudioRecord类}
+    \includegraphics[width=0.9\textwidth]{1-diagram/video-one.png}
+    \par
+    \textbf{优点：}
+    \begin{itemize}
+        \item \emph{onPreviewFrame}函数实时获取摄像头原始的每一帧视频流数据，格式为\emph{YUV（NV21）}。
+        \item \emph{AudioRecord}实时获取未经压缩的音频流，格式为\emph{PCM}。
+    \end{itemize}
+
+    \textbf{缺点：}
+    \begin{itemize}
+        \item 不能同步采集到音频。采集视频和采集音频是分开的两个步骤。
+        \item \emph{Camera}类不提供视频编码方案，需要添加代码来对采集到的\textbf{YUV}数据进行编码。
+        \item \emph{AudioRecord}不提供音频编码方案，需要自行移植编码库，开源的编解码库有\emph{ilbc}、\emph{speex}等。
+        \item 如果用\textbf{socket}传输，需要添加代码来发送视频流数据。
+    \end{itemize}
+
+    \subsection{方案二：使用MediaRecorder类}
+    \includegraphics[width=0.9\textwidth]{1-diagram/video-two.png}
+    \par
+    \textbf{优点：}
+    \begin{itemize}
+        \item 可以指定视频编码格式，如\emph{H.263}、\emph{H.264}、\emph{MPEG-4}等，不需要额外添加代码来进行视频编码。
+        \item 可以调用\emph{setAudioSource()}函数来设置音频来源，同步采集视频和音频。
+        \item 可以调用\emph{setOutputFile()}函数直接绑定\textbf{socket}流，由\emph{MediaRecorder}类内部自行在\textbf{socket}上传输视频流。
+    \end{itemize}
+
+    \textbf{缺点：}
+    \begin{itemize}
+        \item 通过\textbf{socket}传输时，由于没有关联本地文件，无法对视频文件回写，缺少部分视频格式头信息，客户端将\textbf{socket}发送过来的数据保存成文件时，这个文件无法正常播放，需要额外解码。
+        \item 客户端需要缓冲压缩后的音视频流并解码才能播放，存在一定的延时。
+    \end{itemize}
+
+    \subsection{方案三：使用FFmpeg库}
+    \includegraphics[width=0.9\textwidth]{1-diagram/video-three.png}
+    \par
+    \textbf{FFmpeg}是一个开源的视频和音频流方案，提供了音视频采集、音视频录制，编码转换和流化音视频的功能。\par
+
+    \textbf{优点：}
+    \begin{itemize}
+        \item 使用标准流媒体协议，不用主机端自行封装协议，也省去了视频编码的操作。
+        \item 使用成熟的开源解决方案，功能强大、稳定、可靠。
+        \item \emph{FFmpeg}可以采集音频和视频，避免额外代码来采集音频。
+    \end{itemize}
+
+    \textbf{缺点：}
+    \begin{itemize}
+        \item 需要自行移植\emph{FFmpeg}库到\textbf{Android}上。
+    \end{itemize}
+
+    \section{音视频流的编解码格式}
+    在Android上进行摄像头预览时，可以设置预览的图片格式，如默认的\emph{NV21}、\emph{YV12}等，具体摄像头所支持的格式列表可以调用\\ \emph{getSupportedPreviewFormats()}函数来获取。\par
+    Android强烈建议设置为\emph{NV21}或者\emph{YU21}格式，因为这两个格式在所有摄像头设备上都被支持。这两种设置都对应\textbf{YUV}格式。\par
+    使用\emph{Android AudioRecord}类来采集音频时，获取到的是未经压缩的音频流。\par
+    在网络上传输音视频流时，可以选择如下几种方案：
+    \begin{itemize}
+        \item 不编码。
+        \item 对原始\emph{YUV}视频流进行压缩。
+        \item 对采集到的音频流进行压缩。
+    \end{itemize}
+
+    \subsection{方案一：不编码}
+    这个方案直接传输直接传输原始\emph{YUV}视频流和未经压缩的音频流。\par
+    \textbf{优点：}
+    \begin{itemize}
+        \item 省去编码解码的过程，\emph{Android AudioTrack}类能够播放实时音频流，一定程度上能够简化代码。
+        \item 如果能够直接播放原始音视频流，则可以实时播放，不需要缓冲播放。
+    \end{itemize}
+
+    \textbf{缺点：}
+    \begin{itemize}
+        \item 音视频流没有经过压缩，数据量大，传输速率低。
+        \item \textbf{Android}上层不能直接显示\textbf{YUV}数据，客户端需要额外对\textbf{YUV}数据进行处理才能显示。
+    \end{itemize}
+
+    \subsection{方案二：压缩YUV视频帧}
+    可以采用两种方式来压缩采集到的YUV视频帧：
+    \begin{itemize}
+        \item 压缩为静态的\textbf{JPEG}格式。
+        \item 使用视频压缩格式。
+    \end{itemize}
+
+    \subsubsection{压缩为JPEG格式}
+    这个方案将原始\emph{YUV}视频帧压缩为\textbf{JPEG}格式，并传输该\textbf{JPEG}数据。\par
+    \textbf{优点：}
+    \begin{itemize}
+        \item \textbf{Android}原生支持，编码难度低。
+    \end{itemize}
+
+    \textbf{缺点：}
+    \begin{itemize}
+        \item 压缩后的\textbf{JPEG}数据还是偏大，传输速率低。
+        \item \textbf{JPEG}格式为静态图片，不能很好地显示动态物体。
+        \item 如果用\textbf{socket}传输，不方便识别\textbf{JPEG}图片结尾，难以选择显示\textbf{JPEG}图片的时机。一个简单的做法是主机端发送完一张图片后，就断开\textbf{socket}连接，客户端读取到\textbf{EOF}后，就显示获取到的图片。
+    \end{itemize}
+
+    \subsubsection{使用视频压缩格式}
+    Android层可以使用\emph{MediaRecorder}类来采集并压缩视频流。原生支持的视频格式有：\emph{H.263}、\emph{H.264}、\emph{MPEG-4}。如果要支持更多的格式，需要移植相应的编解码库。\par
+    一般来说，可以比较下面几项来判断不同视频格式之间的优劣：
+    \begin{description}
+        \item[视频码率] 指的是数据传输时单位时间内传送的数据位数，单位一般是kbps，即千位每秒。通俗的说就是取样率，单位时间内取样率越大，精度越高，质量越好，同时文件体积也越大。同等图像质量下，码率越低，得到的文件体积就越小。
+        \item[压缩比] 压缩前和压缩后的文件所占的磁盘空间比值，称为压缩比。压缩比越高，压缩后的文件越小，占用的存储空间也越小。
+        \item[图像质量] 主要包含两个方面：图像的逼真度和图像的可懂度。简单的说，压缩后的图像越清晰，图像质量就越好。
+        \item[网络带宽要求] 网络带宽是指一个固定时间内，能通过的最大位数据。同样大小的原始文件，压缩后的文件越小，占用的网络带宽就越小，具有更好的适用性。
+        \item[算法复杂度] 指的是该视频格式的实现复杂度。算法越复杂，就越难实现，就有更大可能带来编码错误，系统运行要求也高，比如需要更多的处理器和更多的内存。
+        \item[兼容性] 同一种视频格式，不同编解码的实现是否保持兼容。显然，兼容性越差，不同产品之间的互通性就越差，可能出现某个编码器编出的数据，只能通过它的解码器来解码的情况。
+    \end{description}
+    \par
+    目前没有找到权威、详实的数据来对比\emph{MPEG-4}、\emph{H.263}、\emph{H.264}之间的差异，只能大概列举如下：\\
+    \begin{tabular}{|c|c|c|c|c|c|c|}
+        \hline
+        & 码率 & 压缩比 & 图像质量 & 带宽要求 & 算法复杂度 & 兼容性 \\ \hline
+        H.263 & 变 & 高 & 好 & 可变 & 较高 & 互通良好 \\ \hline
+        H.264 & 最低 & 比263高 & 比263好 & 可变 & 最复杂 & 互通性差 \\ \hline
+        MPEG-4 & 低 & 高 & 好 & 低 & 最低 & 好 \\ \hline
+    \end{tabular}
+    \par
+    另外，\textbf{H.263}只能传输视频，不能传输音频。而\textbf{H.264}和\textbf{MPEG-4}即能传输视频，也能传输音频。
+    \subsection{方案三：压缩音频}
+    在\textbf{Android}中，\emph{AudioRecord}获取到的是\textbf{PCM}格式的音频流，如果要压缩该音频流，需要移植音频编码库。\emph{MediaRecorder}能够采集并压缩音频流，原生支持的音频格式有：\emph{AMR}、\emph{AAC}。
+    \begin{description}
+        \item[AMR] 全称为\textbf{A}daptive \textbf{M}ulti-\textbf{R}ate （\emph{AMR-NB}）和\textbf{A}daptive \textbf{M}ulti-\textbf{R}ate Wideband （\emph{AMR-WB}），该音频格式主要用在移动设备上，压缩比大，质量也比较差，但用在人声、通话上，效果还不错。
+        \item[AAC] 全称为\textbf{A}dvanced \textbf{A}udio \textbf{C}oding codec（\emph{ACC-LC}），包括High\\Efficiency AAC （\emph{HE-AAC}），Enhanced Low Delay AAC （\emph{AAC-ELD}）。相比于MP3，AAC格式的音质更佳，文件更小。
+    \end{description}
+
+    \section{网络传输方式}
+    在网络上传输音视频流、命令类内容时，可以采用如下的方式：
+    \begin{itemize}
+        \item Socket传输。
+        \item HTTP传输。
+        \item RTP/RTSP传输。
+        \item 流媒体服务方式，如\emph{live555}等。
+    \end{itemize}
+
+    \subsection{Socket传输}
+    直接使用\textbf{socket}传输，不使用应用层协议。为了区分视频、音频、命令类内容，有两个思路：
+    \begin{itemize}
+        \item 用同一个\textbf{socket}连接，在传输的数据前面附加一个类型头，标识是所要传输的是视频、音频、还是命令类内容，相当于自定义一套协议报文。
+        \item 使用三个\textbf{socket}连接，占用三个端口（\emph{port}），分别传输视频（如果同步采集音视频频的话，也传输音频）、音频、命令类内容。
+    \end{itemize}
+
+    \textbf{优点：}
+    \begin{itemize}
+        \item 不需要调用或移植应用层协议类包。
+    \end{itemize}
+
+    \textbf{缺点：}
+    \begin{itemize}
+        \item 需要自行解析、维护当前传输的是哪种类型的数据。
+        \item 通过流传输，不好识别特定格式数据的末尾，对解码有所影响。
+    \end{itemize}
+
+    \subsection{HTTP传输}
+    主机端实现一个小型的\textbf{HTTP}服务器，客户端向主机发送\textbf{HTTP}请求，指明所要进行的操作。\par
+    \textbf{优点：}
+    \begin{itemize}
+        \item 通过\textbf{HTTP}请求区分所要传输的数据类型。命令类内容通过表单提交。
+        \item \textbf{Android}层原生支持，方便实现。
+    \end{itemize}
+
+    \textbf{缺点：}
+    \begin{itemize}
+        \item 主机端的\textbf{IP}地址不固定时，需要另外的方式让客户端知道变化后的\textbf{IP}地址。例如域名、主机先用\textbf{socket}发送\textbf{IP}地址到客户端（通过云端服务器中转）等方式。
+        \item \textbf{HTTP}请求的资源对应主机端的文件，要求主机先把数据存储到本地，实时性较差。
+        \item \textbf{HTTP}请求由客户端发出，服务器作出响应。主机端难以主动向客户端推送命令类内容。
+    \end{itemize}
+
+    \subsubsection{RTP/RTSP传输}
+    通过\emph{RTP/RTSP}协议在主机端和客户端之间双向发送请求，从而传输音频和视频。
+    \begin{description}
+    \item[RTP] 全称是\textbf{R}eal-time \textbf{T}ransport \textbf{P}rotocol，即实时传输协议。该协议详细说明了在互联网上传输音频和视频的标准数据包格式，通常用于流媒体系统（配合\textbf{RTSP}协议）。在\textbf{TCP/IP}协议体系中，RTP属于应用层协议，通常在\textbf{UDP}（数据包传输协议）上传输。
+    \item[RTSP] 全称是\textbf{R}eal \textbf{T}ime \textbf{S}treaming \textbf{P}rotocol，即实时流传输协议，该协议定义了一对多应用程序如何有效地通过IP网络传输多媒体数据。RTSP在\textbf{TCP/IP}协议体系中属于应用层协议，但在结构上位于\textbf{RTP}和\textbf{RTCP}之上，使用\textbf{TCP}或\textbf{RTP}完成数据传输。与\textbf{HTTP}协议相比，HTTP请求由客户端发出，服务器作出响应；使用RTSP时，客户端和服务器都可以发出请求，属于双向通道。
+    \end{description}
+
+    \textbf{优点：}
+    \begin{itemize}
+        \item 这两个协议是针对传输多媒体数据而设计，更为专业。
+    \end{itemize}
+
+    \textbf{缺点：}
+    \begin{itemize}
+        \item \textbf{Android}层原生没有支持，需要移植或实现这两个协议包，工作量大。
+    \end{itemize}
+    \par
+    另外，根据目前查找的资料，无法判断出这两个协议是否原生支持传输命令类内容、是否需要扩展。
+
+
+    \subsection{流媒体服务器方式}
+    搭建一个流媒体服务器，由它来负责传输流媒体数据。
+    \begin{description}
+        \item[流媒体] 使用流方式在网络中传送音频、视频和多媒体文件的媒体形式。
+        \item[流媒体服务] 使用流式协议，如\emph{RTP/RTSP}、\emph{MMS}、\emph{RTMP}等，将视频文件传输到客户端，以供在线播放；也可从视频采集、压缩软件接收实时视频流，再以流式协议直播到客户端。
+        \item[live555] 这是一个为流媒体提供解决方案的C++开源项目，实现了对标准流媒体传输协议如\emph{RTP/RTCP}、\emph{RTSP}、\emph{SIP}等的支持，同时也支持对多种音视频编码格式的音视频数据进行流化、接收和处理，例如\emph{MPEG}、\emph{H.263}、\emph{JPEG}等编码格式。
+    \end{description}
+
+    \textbf{优点：}
+    \begin{itemize}
+        \item 不需要在\textbf{Android}上移植或实现\textbf{RTP/RTSP}协议。
+    \end{itemize}
+
+    \textbf{缺点：}
+    \begin{itemize}
+        \item 需要熟悉使用\emph{live555}或者其他解决方案搭建流媒体服务器。
+    \end{itemize}
+
+    \section{客户端播放音视频流}
+    在客户端，有如下方式播放获取到的音视频流：
+    \begin{itemize}
+        \item 使用\emph{AudioTrack}播放未经压缩的实时音频流。
+        \item 使用\emph{MediaPlayer}播放\textbf{AMR}音频流。MediaPlayer只能播放文件流，需要先缓存接收到的音频再播放。
+        \item 使用\emph{Android VideoView}显示视频。
+        \item 使用\emph{Android ImageView}显示静态\textbf{JPEG}图片。
+        \item 使用\emph{Android MediaPlayer}显示视频。
+        \item 使用\emph{Android GLSurfaceView}显示\textbf{YUV}图像，需要调用\textbf{OpenGL ES}库来进行\textbf{GPU}转码，将\textbf{YUV}转成\textbf{RGB}。
+    \end{itemize}
+    总的来说，分为两种大的方式：播放实时流，解码后再播放。\par
+    播放实时流的优缺点如下：
+    \textbf{优点：}
+    \begin{itemize}
+        \item 高保真，实时。
+    \end{itemize}
+
+    \textbf{缺点：}
+    \begin{itemize}
+        \item 数据流没有经过压缩，数据量大，网络传输速率低。
+        \item \textbf{Android}层显示原始\textbf{YUV}图像，需要经过转码，在软件上转，会影响CPU性能；通过GPU转，对GPU性能有要求。
+        \item 原始数据保存到本地后一般无法直接播放，还是需要进行压缩编码。
+    \end{itemize}
+    \par
+
+    解码后再播放的优缺点如下：\par
+    \textbf{优点：}
+    \begin{itemize}
+        \item 传输数据流时，经过压缩编码，数据量小，方便在网络上传输。
+        \item 所接收到的数据可以保存，以供后续播放。
+    \end{itemize}
+
+    \textbf{缺点：}
+    \begin{itemize}
+        \item 编码后的数据具有特定格式，需要接收到完整格式数据后才能解码，即需要先缓冲再解码，实时性较差。
+        \item 需要移植编解码库。
+    \end{itemize}
+
+    \section{建议方案}
+    综合上面的分析，有下面这样一个的建议方案。这个方案受限于自身知识面。例如我选择用\textbf{socket}传输，因为我对\textbf{socket}比较熟悉，觉得实现起来有把握，能够大概预见可能的问题。如果换一个对\textbf{RTP/RTSP}熟悉的人，他可能会选择用\textbf{RTP/RSTP}传输。\par
+    \includegraphics[width=0.9\textwidth]{1-diagram/suggest.png}
+    \par
+    实现这个方案时，有如下需要注意的地方：
+    \begin{itemize}
+        \item 要绑定\textbf{socket}流到传输MediaRecorder的setOutputFile()函数中，该\textbf{socket}必须是Android的\emph{LocalSocket}类型，因为setOutputFile()函数接受FileDescriptor类型变量，LocalSocket类有一个getFileDescriptor()函数可以返回这种类型的变量，而Java的\emph{Socket}类没有这样的函数。即，无法直接通过MediaRecorder.setOutputFile()函数来绑定Java的Socket。但是LocalSocket类只能在本地使用，所以需要把写入到LocalSocket流的数据再通过Java的Socket传出去。LocalSocket会有一个发送端，一个接收端，将发送端绑定到MediaRecorder中，则MediaRecorder写入到发送端的数据可以在接收端来接收，之后再读取接收端的输入流（InputStream），就能读取到MediaRecorder采集到的数据，把这些数据写入Java socket的输出流即可。
+        \item 上面提到，将MediaRecorder绑定到\textbf{socket}流时，它无法会文件进行回写，直接保存\textbf{socket}中的数据到本地文件，这个文件无法被播放。实际验证，确实如此。写入的文件中缺少了部分格式信息，不是一个有效的MPEG-4或者H.264格式文件。这需要添加代码来填充这部分格式信息。
+        \item 在\textbf{Android 2.2}往上的版本中，MediaRecorder类使用setProfile()函数来设置视频和音频的输出格式、编码格式等，setOutputFormat()、setAudioEncoder()、和setVideoEncoder()函数适用于\textbf{Android 2.2 (API Level 8)}之前的版本。由于setProfile()函数调用了setOutputFormat()、setAudioEncoder()、和setVideoEncoder()等函数，如果要调用setProfile()函数，就不要调用那三个函数。在Android 4.4中，默认的输出格式是MPEG-4（对应的常量值为2），音频编码格式是AAC（对应的常量值为3），视频编码格式是H.264（对应的常量值为2）。
+        \item 在X10上实际验证发现，视频编码格式为\textbf{H.264}时，音频编码格式必须是\textbf{AAC}，保存下来的文件才有声音，如果音频编码格式是\textbf{AMR}，保存下来的文件听不到声音。而设置视频编码格式为\textbf{MPEG-4}时，运行时报错，提示"The given video encoder 3 is not found"，"Construct SoftMPEG4Encoder"，即不支持硬件编码\textbf{MPEG-4}格式，而是使用软件编码，长时间运行时应用会崩溃，所保存的文件无法播放。设置成\textbf{H.263}格式也会提示不支持。
+    \end{itemize}
+
+    \clearpage
+\end{CJK}
+\end{document}

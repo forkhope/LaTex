@@ -1,0 +1,1887 @@
+\documentclass[draft,openany]{book}
+
+\usepackage{CJKutf8}
+\usepackage{indentfirst}
+\usepackage{listings}
+\usepackage{mdwlist}
+
+\begin{document}
+\begin{CJK}{UTF8}{gbsn}
+
+    \title{Bash Reference Manual}
+    \author{John Lee}
+    % \date{2014年06月05号}
+    \renewcommand{\contentsname}{目\quad 录}
+    \renewcommand{\chaptername}[2]{\Huge{第{\thechapter}章}}
+    \renewcommand{\bibname}{参考文献}
+
+    % 设置带编号的子章节深度,默认为2,则subsection会有编号,而subsubsection没有
+    % 编号,所以设置成3,让subsubsection也有编号.
+    \setcounter{secnumdepth}{3}
+
+    % 设置目录列表中的章节深度,默认是2,则subsection会出现在目录列表中,但是
+    % subsubsection不出现在目录列表中,即使设置了secnumdepth为3也是一样.所以
+    % 设置成3,让subsubsection也出现在目录列表中.注意: 要先设置目录列表章节
+    % 深度,再生成目录才起作用.
+    \setcounter{tocdepth}{3}
+
+    \maketitle
+    \tableofcontents
+
+    \chapter{介绍}
+    \section{Bash是什么?}
+    Bash是GNU操作系统上的一个外壳程序,或者说是命令行解释器.
+
+    \section{Shell是什么?}
+    Shell最基本的功能是作为一个执行命令的宏处理器.所谓"宏处理器"是指一种能够扩
+    展文本和符号以创建大型表达式的功能.\par
+    一个Unix Shell既是命令解释器,也是一种编程语言.
+
+    \chapter{术语定义}
+    对本书所使用的术语定义如下:\par
+    % 可以考虑用 \begin{description} 来代替制表
+    \begin{tabular}{lp{32em}}
+        % \hline. \hline会生成一条水平横线.即, tabular 不会自动加横屏,需要手动
+        % 使用 \hline 来添加,如果不想要横线,不添加\hline命令即可.
+        POSIX & 一个基于Unix的开放系统标准族. Bash主要关注的是POSIX 1003.1标准的"Shell and Utilities"部分.\\ \\
+        空白字符 & 一个空格或者制表符.\\ \\
+        内置命令 & 是指Shell自身所实现的命令,而不是指放置在文件系统某处的可执行文件.\\ \\
+        控制符 & 用于执行控制功能的标识符.它可以是 `\textbackslash n', `\textbar \textbar', `\&\&', `\&', `;', `;;', `\textbar', `\textbar \&', `(' 或者 `)'.\\ \\
+        退出状态 & 命令返回一个值给它的调用者.该值被严格限制为8位,所以最大值是255.\\ \\
+        字段 & 由shell扩展所生成的一个文本单元.在执行命令时,扩展所生成的字段被视作命令名和命令参数.\\ \\
+        文件名 & 用来指示某个文件的一串字符.\\ \\
+        作业 & 由多个进程组成的集合,这些进程构成了管道,它们(以及它们所衍生的任何进程)全都处于同一个进程组中.\\ \\
+        作业控制 & 一种能够让用户选择性地暂停并重新执行进程的机制.\\ \\
+        元字符 & 用于分割单词的单个字符,这个字符不能被引号括起来.元字符包括"空格",或者这些字符的其中一个: `\textbar', `\&', `;', `(', `)', `\textless', 或者 `\textgreater'.\\ \\
+        名字 & 一个完全由字母,数字,和下划线组成的单词,且以字母或者下划线开头.主要用作shell变量名和函数名,也称作标识符.\\ \\
+        操作符 & 指的是控制操作符或者重定向操作符."章节 3.6 重定向, 第27页"提供了一份重定向操作符列表.操作符包含至少一个没有括起来的元字符.\\ \\
+        进程组 & 一批相关联的进程.它们都具有相同的进程组ID.\\ \\
+        进程组ID & 一个独一无二的标识符,能够在一个进程组的生命周期内代表这个进程组.\\ \\
+        保留词 & 一个对于shell来说具有特别含义的单词.大部分保留词引入shell的流控制指令,例如 for 和 while.\\ \\
+        返回状态值 & 是"退出状态值"的同义词.\\ \\
+        信号 & 当前系统发生某个事件时,能够通过一种机制给进程发送通知,通知可能来自内核.\\ \\
+        特定内置命令 & 指的是那些由POSIX标准特别划分出来的shell内置命令.\\ \\
+        符号 & 被shell当作一个单元的一连串字符.它要么是"单词",要么是"操作符".\\ \\
+        单词 & 被shell当作一个单元来看待的一连串字符.单词中不能包含没有括起来的元字符.
+    \end{tabular}
+
+    \chapter{Shell的基本特性}
+    Bash是"Bourne-Again SHell"的首字母缩略词.\par
+    这个章节简要的概述shell的基础部分: 命令,控制结构,shell函数,shell 变量,shell扩展,重定向(一种直接从指定文件获取输入或者输出到指定文件的方式),以及shell怎么样执行命令.
+
+    \section{Shell语法}
+    当shell读取输入,它开始进行一系列的操作.如果这些输入表明它是一个注释的开头,shell会忽略注释符号(`\#'),以及这一行接下来的其他部分.\par
+    否则,大约说来,shell读取它的输入,并把这些输入分成单词和操作符,使用"引号规则"来为各种各样的单词和字符选择它们的含义.\par
+    然后,shell从语法上将这些符号解析为命令和其他指令,移除特定单词或者字符的特别含义,扩展其他特殊字符,如果有的话会重定向输入和输出,执行指定的命令,等待获取命令的退出状态码,并保存该退出状态码以便后面的检查或者处理.
+
+    \subsection{Shell操作}
+    Shell在读取并执行命令时,会进行一系列操作.基本地, shell会进行如下步骤:\par
+
+    \begin{enumerate}
+        \item 读取shell的输入.这些输入来自一个文件,或者是跟在"-c"选项后面的字符串参数,或者来自用户的输入终端.
+        \item 将输入划分为单词和操作符.划分时遵从"3.1.2小节 引用"所描述的引号规则.这些符号被元字符分割开.这个阶段还会进行别名扩展.
+        \item 将上一个步骤得到的符号解析成单个的或者复合的命令 (参见"3.2小节 Shell命令").
+        \item 执行各种各样的shell扩展 (参见"3.5小节 Shell扩展"),划分这些扩展符号为文件名列表 (参见"3.5.8小节 文件名扩展),命令,以及命令的参数.
+        \item 执行重定向操作,之后从参数列表中移除重定向操作符和它们的操作数.
+        \item 执行所输入的命令 (参见"3.7小节 执行命令).
+        \item 可选择地,等待命令完成,并收集它的退出状态码.
+    \end{enumerate}
+
+    \subsection{引用}
+    引用可以移除shell的特定字符或者单词的特殊含义.引用能够停止对特殊字符的特殊对待,例如阻止识别成保留字,阻止参数扩展.\par
+    对于shell来说,每个shell元字符都有特殊含义,如果想让元字符代表它自身,那么必须将它括起来.当历史命令扩展功能被启用时,必须将历史扩展字符(一般是`!')括起来以阻止历史扩展.查看"9.1小节 Bash历史功能",来了解关于历史扩展的更多细节.\par
+    目前有三个引用机制: 转义字符, 单引号, 以及双引号.
+
+    \subsubsection{转义字符}
+    一个没有括起来的反斜线`\textbackslash`就是Bash的转义字符.除了换行符之外,它保持紧随其后的下一个字符的文本含义.如果 \textbackslash newline 成对出现,且反斜线自己没有被括起来,这个\textbackslash newline被当作一行的延续 (即,它会从输入流中被移除,并被忽略).
+
+    \subsubsection{单引号}
+    被单引号(`' ')所包含起来的每个字符都会保持它的文本含义.单引号本身不能出现在单引号对里面,即使在它之前加了一个反斜线也还是不行.
+
+    \subsubsection{双引号}
+    除了`\$', ` `', '\textbackslash', 以及`!'(当历史扩展被启用时)之外,被双引号(`''')所包含起来的所有字符串会保持它们的文本含义.双引号中的`\$'和` `'会保留它们的特殊含义 (参见3.5小节 Shell扩展).当反斜线后面跟着`\$', ` `', , `''', '\textbackslash', 或者换行符时,反斜线会保留它的特殊含义,但在生成的字符串中,反斜线会被移除.反斜线后面跟着的字符没有特殊含义时,反斜线和这个字符都会保持原样,不会被修改.在双引号符号前面前置一个反斜线,它就可以嵌套在闭合的双引号中.如果历史扩展功能被启用,则双引号中的`!'将会执行历史扩展,除非使用反斜线对`!'进行转义.`!`前面的反斜线不会被移除 (echo ``\textbackslash !'',会输出\textbackslash !).\par
+    在双引号中,`*`和`@`这两个特殊参数具有特殊含义 (参见 3.5.3小节 Shell参数扩展).
+
+    \subsubsection{ANSI-C 引用}
+    类似于\$'string'这种形式的单词会被特别对待.整个单词会被扩展成string,当string中有反斜线转义字符时,会按照ANSI C标准来进行代替.如果存在反斜线转义序列,它们会按照下面的方式来进行解码:\par
+    \begin{tabular}{lp{32em}}
+        \textbackslash a & 警报 (响铃) \\ \\
+        \textbackslash b & 退格 \\ \\
+        \textbackslash e \\
+        \textbackslash E & 一个转义字符 (不在ANCI C中) \\ \\
+        \textbackslash f & 换页符 \\ \\
+        \textbackslash n & 换行符 \\ \\
+        \textbackslash r & 回车符 \\ \\
+        \textbackslash t & 水平制表符 \\ \\
+        \textbackslash v & 垂直制表符 \\ \\
+        \textbackslash \textbackslash & 反斜线 \\ \\
+        \textbackslash ' & 单引号 \\ \\
+        \textbackslash '' & 双引号 \\ \\
+        \textbackslash nnn & 一个八位的字符,该字符的值等于八进制nnn的值(每个数字被扩展为三个位) \\ \\
+        \textbackslash xHH & 一个八位的字符,该字符的值等于十六进制HH的值(一个或者两个十六进制位) \\ \\
+        \textbackslash uHHHH & 一个Unicode (ISO/IEC 10646) 字符,该字符的值等于十六进制HHHH的值 (每个数字对应四个十六进制位) \\ \\
+        \textbackslash UHHHHHHHH & 一个Unicode (ISO/IEC 10646) 字符,该字符的值等于十六进制HHHHHHHH的值 (每个数字对应八个十六进制位) \\ \\
+        \textbackslash cx & 一个 Control-X 控制字符
+    \end{tabular}
+    这个扩展后的结果是单个字符,就好象美元符号不存在一样.
+
+    \subsubsection{特殊区域编码转换}
+    将美元符号 (`\$') 放在双引号字符串前面,则会根据当前编码对该字符串做转换.如果当前编码是 \textbf{C} 或者 \textbf{POSIX},美元符号会被忽略.如果这个字符串被转换并代码,转换后的结果也用双引号括起来.
+
+    \subsection{注释}
+    在一个非交互式shell,或者shopt内置命令的interactive\_comments选项被开启的交互式shell中,一个用`\#'开头的单词导致这个单词以及该行其后的所有字符都被忽略.没有开启interactive\_comments选项的交互式shell不允许注释.在交互式shell中,interactive\_comments默认被开启."6.3小节 交互式Shell"描述了如何让shell成为交互式的.
+
+    \section{Shell命令}
+    一个类似于\textbf{echo a b c}的简单shell命令由命令本身以及其后的参数组成,中间用空格分割开.\par
+    用各种方式可以将简单命令安排在一起,组合成更复杂的shell命令: 使用管道将一个命令的输入变成其下一个命令的输入, 使用循环或者条件指令, 或者使用其他的组合.
+    \subsection{简单命令}
+    简单命令是最常遇到一种命令.它仅仅是一系列由空白字符分割开的单词,并终止于某个shell控制操作符 (参见"章节2 术语定义").其第一个单词通常指定要执行的命令,随后的单词是这个命令的参数.\par
+    一个简单命令的返回状态码就是它的退出状态码.该退出状态码由POSXI 1003.1的waitpid()函数提供,或者在命令被信号 n 终止时,退出状态码是 128+n.
+    \begin{verbatim}
+    使用 "$?" 获取退出状态码
+    描述其他用元字符分割单词的情况.
+    \end{verbatim}
+
+    \subsection{管道命令}
+    管道命令是一系列由`\textbar'或者`\textbar \&'分割开的简单命令.\par
+    管道命令的格式是:
+    \begin{verbatim}
+    [time [-p]] [!] command1 [ [| or |&] command2 ...]
+    \end{verbatim}
+    管道命令中每一个命令的输出经过管道连接到下一次命令的输入.即,每个命令读取前一个命令的输出.这个连接的执行会早于管道命令中指定的重定向.
+
+    如果使用`\textbar \&',则\emph{command1}的标准错误输出会通过管道连接到\emph{command2}的标准输入. `\textbar \&'是 \textbf{2\textgreater\&1 \textbar} 的缩写.这个对标准错误输出的隐式重定向的执行会晚于管道命令所指定的其他重定向.
+
+    \begin{verbatim}
+    即,使用 `|' 来作为管道连接时,它只能重定向命令的标准输出到下一个命令的标准
+    输入,这个命令的标准错误输出还是保持不变. 例如:
+    $ ls        #  查看当前目录下的文件,可以看到只有一个foobar文件
+    foobar
+    $ cat foo | grep bar   # 当前目录下没有foo文件,cat foo报错.
+    cat: foo: No such file or directory
+    由于当前目录下没有 foo 文件,则 cat foo 报错,写标准错误输出到终端上.管道没
+    有将标准错误输出重定向给grep命令.
+    如果想在管道中也重定向标准错误输出,则可以使用 '|&'. 例如:
+    $ cat foo |& grep bar
+    $ 
+    可以看到,没有任何错误信息打印出来,虽然cat foo还是报错,会提示
+    "No such file or directory",然后这个字符串被重定向给grep bar命令,由于这个
+    字符串中不包含"bar",所以grep没有打印什么东西出来.如果重定向的是grep such命
+    令,就有会打印.因为"No such file or directory"字符串中包含了"such",能被grep
+    匹配到.
+    $ cat foo |& grep such
+    cat: foo: No such file or directory
+    \end{verbatim}
+
+    保留字\textbf{time}会在管道命令结束后,打印管道命令所消耗的时间.所消耗的时间统计由管道命令的实际执行时间,用户CPU时间和系统CPU时间组成.这个 ``-p''选项将输出的时间格式转换为POSIX指定的格式.当shell处于POSIX模式(参见"6.11小节 Bash的POSIX模式")时,如果time随后的标识符以`-'开头,则time将不被认为是保留字.可以通过设置TIMEFORMAT变量来指定所显示时间信息的格式."5.2小节 Bash变量"描述了可用的格式.将time作用保留字使用能够计算shell内置命令,shell函数,和管道的执行时间.外部的time命令不方便来计算这些时间.
+
+    \begin{verbatim}
+    注意: Bash中有两个time命令.一个是Bash内部的保留字,还有一个是外部的可执行文件,文件名是time,使用which time命令查找time命令所在的位置,输出的路径是: "/usr/bin/time".这个time命令和管道命令中的time不是同一个命令. "help time"和"man time"查看到的time帮助信息也是不一样的.
+
+    由于这两个time命令同名,那么在Bash中执行time命令时,执行的是哪个命令?答案是会执行Bash中内置的time命令. 例如:
+    $ time ls       # 直接执行time命令,输出结果如下:
+    foobar
+
+    real    0m0.002s
+    user    0m0.000s
+    sys 0m0.004s
+    $ /usr/bin/time ls  # 通过绝对路径来执行/usr/bin/time命令,输出
+    foobar          # 的结果和上面的time命令有所不同,这是两个不同的命令.
+    0.00user 0.00system 0:00.00elapsed ?%CPU (0avgtext+0avgdata 3760maxresident)k
+    0inputs+0outputs (0major+301minor)pagefaults 0swaps
+    /usr/bin/time命令的 "-v" 选项可以输出更详细的信息:
+    $ /usr/bin/time -v ls
+    foobar
+    Command being timed: "ls"
+    User time (seconds): 0.00
+    System time (seconds): 0.00
+    Percent of CPU this job got: ?%
+    Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.00
+    Average shared text size (kbytes): 0
+    Average unshared data size (kbytes): 0
+    Average stack size (kbytes): 0
+    Average total size (kbytes): 0
+    Maximum resident set size (kbytes): 3728
+    Average resident set size (kbytes): 0
+    Major (requiring I/O) page faults: 0
+    Minor (reclaiming a frame) page faults: 300
+    Voluntary context switches: 1
+    Involuntary context switches: 1
+    Swaps: 0
+    File system inputs: 0
+    File system outputs: 0
+    Socket messages sent: 0
+    Socket messages received: 0
+    Signals delivered: 0
+    Page size (bytes): 4096
+    Exit status: 0
+    \end{verbatim}
+
+    当shell处于POSIX模式时, \textbf{time}后面可以跟着一个换行符.此时,shell显示shell和它的子进程所消耗的总用户CPU时间和总系统CPU时间.可以用TIMEFORMAT变量来指定时间信息的格式.\par
+    如果管道命令不是异步执行的,shell会等待管道中的所有命令都执行结束.\par
+    管道命令中的每个命令都是在它自己的子shell中执行 (参见"3.7.3小节 命令执行环境").除非开启了pipefail选项,否则管道命令的退出状态码是管道中最后一个命令的退出状态码.如果开启了pipefail选项,则管道命令的返回状态码是最后一个以非0状态码退出的命令的退出状态码,或者是0,如果所有命令都成功退出的话.
+    \begin{verbatim}
+    没有开启pipefail选项时,即使管道中的某个命令执行出错,会继续执行下一个命令,且管道命令的退出状态码是最后一个命令的退出状态码.
+    开启了pipefail选项后,即使管道中的某个命令执行出错,还是继续执行下一个命令,并不会终止执行管道命令.只是,管道的退出状态码会是最后一个出错的命令的退出状态码.例如:
+    $ ls foo; echo $?   # 查看 ls 命令找不到文件时的状态码,输出为 2.
+    ls: cannot access foo: No such file or directory
+    2
+    $ ls foo | date; echo $?      # ls 命令执行出错,但是date命令执行成功,由于
+    Fri Jun 20 16:45:42 CST 2014  # pipefail选项默认没有开启,则管道命令的状态码
+    ls: cannot access foo: No such file or directory  # 是最后一个命令的状态码.
+    0                             # 输出的结果为0,是date命令的退出状态码.
+    $ set -o pipefail +           # 使用 set 内置命令开启pipefail选项
+    $ ls foo | date; echo $?      # ls 命令执行出错,管道最后的date命令执行成功
+    ls: cannot access foo: No such file or directory # 开启pipefail选项后,管道
+    Fri Jun 20 16:46:13 CST 2014  # 命令的状态码是最后一个出错命令的状态码,输出
+    2                             # 结果为2.
+    $ cat foo; echo $?            # 再查看 cat 找不到文件的退出状态码,输出为 1.
+    cat: foo: No such file or directory
+    1
+    $ ls foo | cat foo | date; echo $?    # ls命令执行出错,cat命令执行出错,date
+    cat: foo: No such file or directory   # 命令执行成功,管道命令将最后一个出错
+    Fri Jun 20 16:47:13 CST 2014          # 命令的退出状态码作为管道命令的退出
+    ls: cannot access foo: No such file or directory  # 状态码.此时,最后一个执
+    1                              # 行出错的命令是cat命令,所以输出为1.
+    \end{verbatim}
+
+    如果将保留字 `!' 放在管道命令之前,则对会上述的退出状态码进行逻辑取反操作,得到新的退出状态码.在返回状态码之前,shell会等待管道中的所有命令都执行结束.
+
+    \subsection{命令列表}
+    一个命令列表是一系列被`;', `\&', '\&\&', 或者 `\textbar \textbar' 分割开的一个或多个管道命令.可选地,该命令列表终止于 `;', `\&', 或者换行符.\par
+    \begin{verbatim}
+    注意,根据3.2.1小节中管道命令的格式,管道操作符`|'是可选的,只有command1才是必须的,即简单命令是管道命令的一个特例.定义上,命令列表由管道命令组成,简单命令也属于管道命令,所以,命令列表也可以由简单命令组成.
+    \end{verbatim}
+    在这些命令列表操作符中,`\& \&'和`\textbar \textbar'具有相同的优先级,且高于`;'和`\&',后两者具有相同的优先级.\par
+
+    一个或多个换行符可以出现命令列表中,用于分开不同的命令,相当于分号.此时,要求换行符出现在`\& \&'或者`\textbar \textbar'之后.如果换行符出现在`;'或者`\&'之后,就会终止该命令列表.\par
+    如果命令终止于控制操作符`\&',则shell在一个子shell中异步地执行该命令.也称之为该命令在后台执行.shell不会等待该命令执行结束,并且返回状态码是0(即为真).如果作业控制没有被激活,则在不经过任何显式重定向的情况下,异步命令的标准输入会被重定向到/dev/null.\par
+    被`;'分割开的命令会按顺序执行;shell也会按顺序等待每个命令执行结束.最终的返回状态码是最后一个被执行命令的退出状态码.\par
+    \textbf{AND}和\textbf{OR}命令列表分别是一系列被`\& \&'和`\textbar \textbar'分割开的一个或多个管道命令.\textbf{AND}和\textbf{OR}命令列表是按照左结合来执行.\par
+    一个\textbf{AND}命令列表具有这样的形式\par
+    \begin{quote}
+        command1 \&\& command2\par
+    \end{quote}
+    当且仅当\emph{command1}返回的退出状态码为0时, \emph{command2}才会被执行.\par
+    注意, shell中,命令执行成功返回为0,所以这个命令列表的意思就是,只有当\emph{command1}执行成功时,才会执行\emph{command2}.\par
+    一个\textbf{OR}命令列表具有这样的形式\par
+    \begin{quote}
+        command1 \textbar \textbar{} command2
+    \end{quote}
+    当且仅当\emph{command1}返回一个非0的退出状态码,\emph{command2}才会被执行.即,只有当\emph{command1}执行出错时,才会执行\emph{command2}.\par
+    \textbf{AND}和\textbf{OR}的返回状态码是命令列表中最后一个被执行命令的退出状态码.
+    \subsection{复合命令}
+    复合命令是指shell的编程结构.每个结构开始于保留字或者控制操作符,结束于相应的保留字或者控制操作符.任何关联到复合命令的重定向会对复合命令内的所有命令都生效,除非其内的命令进行显式的重定向.\par
+    Bash提供了循环结构,条件命令,以及组合命令并把组合命令当成一个单元来执行的机制.
+
+    \subsubsection{循环结构}
+    Bash支持如下的循环结构.\par
+    注意,在下面描述的命令语法中,所有`;'出现的地方,都可以用一个或多个换行符代替.\par
+    \begin{basedescript}{\desclabelstyle{\nextlinelabel}\desclabelwidth{2.5em}}
+    \item[until] \textbf{until}命令的语法是:
+        \begin{quote}
+            until \emph{test-commands}; do \emph{consequent-commands}; done
+        \end{quote}
+        只要\emph{test-commands}有一个非0的退出状态码,就会执行\emph{consequent-commands}命令.即,只要\emph{test-commands}判断为假,就会执行循环里面的命令.其返回状态码是\emph{consequent-commands}中最后一个被执行命令的退出状态码,或者是0,如果什么都没有被执行的话.
+    \item[while] \textbf{while}命令的语法是:
+        \begin{quote}
+            while \emph{test-commands}; do \emph{consequent-commands}; done
+        \end{quote}
+        只要\emph{test-commands}有一个为0的退出状态码,就会执行\emph{consequent-commands}命令.即,只要\emph{test-commands}为真,就会执行循环里面的命令.其返回状态码是\emph{consequent-commands}中最后一个被执行命令的退出状态码,或者是0,如果什么都没有被执行的话.
+    \item[for] \textbf{for}命令的语法是:
+        \begin{quote}
+            for \emph{name} \verb+[ [in [words ...] ]; ]+ do \emph{commands}; done
+        \end{quote}
+        它会扩展\emph{words},并依次使用扩展结果列表中的每一个成员来执行\emph{commands}命令,每次执行时,都会用当前成员来为\emph{name}赋值.如果`\textbf{in words}'不存在,则\textbf{for}依次使用被设置的位置参数来执行\emph{commands}命令,就好象指定了`in `'\$@'''一样 (参见"3.4.2小节 特殊参数").其返回状态码是最后一个被执行命令的退出状态码.如果\emph{words}扩展后为空,则不会执行任何命令,且返回状态码是0.\par
+        \textbf{for}还有另一个被支持的可选形式:
+        \begin{quote}
+            for (( expr1 ; expr2 ; expr3 )); do \emph{commands}; done
+        \end{quote}
+        首先,会根据下面描述的规则(参见"6.5小节 Shell算术运算)来计算算术表达式\emph{expr1}.接着重复计算算术表达式\emph{expr2},直到它计算出来的值等于0为止.每次\emph{expr2}计算得到的值不为0时,就会执行\emph{commands}命令,并计算算术表达式\emph{expr3}.如果任何表达式被省略,则好像它计算得到1一样.其返回状态码是\emph{commands}中最后一个被执行命令的退出状态码,或者为假,如果任何表达式无效的话.
+    \end{basedescript}
+    内置命令\textbf{break}和\textbf{continue} (参见"4.1小节 Bourne Shell内置命令) 可以用来控制循环的执行.
+    \subsubsection{条件结构}
+    \begin{basedescript}{\desclabelstyle{\nextlinelabel}\desclabelwidth{2.5em}}
+    \item[if] \textbf{if}命令的语法是:
+        % \begin{lstlisting}[language=bash]
+        % if test-commands; then
+        %     consequent-commands;
+        % [elif more-test-commands; then
+        %     more-consequents;]
+        % [else alternate-consequents;]
+        % fi
+        % \end{lstlisting}
+        \begin{quote}
+            if \emph{test-commands}; then\\
+            \verb+    +\emph{consequent-commands};\\
+            \verb+[+elif \emph{more-test-commands}; then\\
+            \verb+    +\emph{more-consequents};\verb+]+\\
+            \verb+[+else \emph{alternate-consequents};\verb+]+\\
+            fi
+        \end{quote}
+        \emph{test-commands}命令列表会先被执行,如果它的返回状态码是0,那么\emph{consequent-commands}命令列表就会被执行.如果\emph{test-commands}返回的是一个非0的状态码,则会依次执行每一个\textbf{elif}命令列表,并且如果它的退出状态码是0,相应的\emph{more-consequents}命令列表就会被执行,然后整个\textbf{if}命令执行完成.如果提供了`\textbf{else} \emph{alternate-consequents}'分支,并且在最终的\textbf{if}或者\textbf{elif}分支的最后一个命令返回非0的退出状态码,那么\emph{alternate-consequents}就会被执行.其返回状态码是最后一个被执行命令的退出状态码,或者是0,如果所有条件测试得到的结果都是真的话.
+    \item[case] \textbf{case}命令的语法是:
+        \begin{quote}
+            case \emph{word} in \verb+[ [(] +\emph{pattern} \verb+[| +\emph{pattern}\verb+]...) +\emph{command-list} \verb+;;]...+ esac
+        \end{quote}
+        \textbf{case}将会根据第一个匹配\emph{word}的\emph{pattern}来选择要执行的\emph{command-list}命令.如果启动了shell的\textbf{nocasematch}选项 (参见"4.3.2小节 Shopt内置命令),那么在匹配的时候,将会忽略字母的大小写.使用`\textbar'来分割多个模式,而`)'操作符终止一个模式列表.一个模式列表和一个相关联的命令列表合称为一个分支.\par
+        每个分支必须终止于`;;', `;\&', 或者 `;;\&'.所提供的\emph{word}会进行波浪号扩展,参数扩展,命令输出替换,算术扩展,且在尝试匹配之前会移除引号.每个\emph{pattern}会进行波浪号扩展,参数扩展,命令输出替换,以及算术扩展.\par
+        它可以有任意数目的\textbf{case}分支,每个分支被`;;', `;\&', 或者`;;\&'所终止.第一个被匹配的模式决定了哪个\emph{command-list}会被执行.\par
+        下面是一个在脚本中使用\textbf{case}的例子.该例子用于描述关于动物的一个有趣特性:
+        \begin{lstlisting}[language=bash]
+        echo -n "Enter the name of an animal: "
+        read ANIMAL
+        echo -n "The $ANIMAL has "
+        case $ANIMAL in
+        horse | dog | cat) echo -n "four";;
+        man | kangaroo ) echo -n "two";;
+        *) echo -n "an unknown number of";;
+        esac
+        echo " legs."
+        \end{lstlisting}
+        如果使用了`;;'操作符,在匹配到第一个模式之后,不会再尝试去匹配随后的模式.使用`;\&'来代替`;;'会导致行下一个分支所关联的\emph{command-list}命令被继续执行,如果有下一个分支的话.使用`;;\&'替代`;;'会导致shell去匹配下一个分支的模式(如果有下一个分支的话),如果匹配成功将会执行下一个分支所关联的\emph{command-list}.
+        \begin{verbatim}
+        描述 *) 的用法,以及该分支所处位置不同,带来的不同结果,顺便作为;&, ;;& 等的描述
+        \end{verbatim}
+    \item[select] \textbf{select}结构允许生成简单的菜单.它的语法和\textbf{for}命令几乎一样:
+        \begin{quote}
+            select \emph{name} \verb+[in +\emph{words} \verb+...]; do +\emph{commands}; done
+        \end{quote}
+        在\textbf{in}后面的一系列\emph{words}会被扩展,生成一系列的子项.扩展后的\textbf{words}集合会在标准错误输出流中打印出来,每一个子项都会前置一个数字.如果`\textbf{in words}'被省略,则位置参数会被打印出来,就好象指定了`in ``\$@'''一样.接着会显示\textbf{PS3}提示符,然后从标准输入读取一行.如果这一行所组成的数字对应所显示的某一个子项,那么\emph{name}的值就会被设置为那个子项.如果读取到的一样为空(例如只输入了回车),会再次打印所有子项和提示符.如果读到了\textbf{EOF},\textbf{select}命令就会结束.其他读到的任何值会导致\emph{name}被赋值为空.所读取到的行被保存在变量\textbf{REPLY}中.\par
+        在每次选择之后会执行\emph{commands}命令,直到执行了一个\textbf{break}命令为止.\textbf{break}命令表示这个\textbf{select}命令执行结束了.\par
+        下面的例子能够让用户挑选出当前目录下的一个文件名,并显示所选择文件的名字和编号.\par
+        \begin{lstlisting}[language=bash]
+        select fname in *;
+        do
+        echo you picked $fname \($REPLY\)
+        break;
+        done
+        \end{lstlisting}
+    \item[((\ldots))] (( \emph{expression} ))\par
+        算术表达式\emph{expression}将会基于下面描述的规则(参见 6.5小节 Shell算术表达式)来进行评估.如果表达式得到的值不是0,则返回状态码是0,否则返回状态码是1.这种写法和下面的写法是完全等价的:
+        \begin{quote}
+            let ``\emph{expression}''
+        \end{quote}
+        参见"4.2小节 Bash内置命令"来查看关于\textbf{let}内置命令的完整描述.
+    \item[[[\ldots]]] \verb+[[ +\emph{expression}\verb+]]+\par
+        根据对条件表达式\emph{expression}的评估来返回状态0或者状态1.条件表达式由后面"6.4小节 Bash条件表达式"中所描述的基本要素所组成.在`\verb+[[+'和`\verb+]]+'之间的单词不会执行单词划分和文件名扩展的操作;波浪号扩展,参数扩展和变量扩展,算术表达式扩展,命令输出替换,进程替换,和引用移除还是会执行.类似于`-f'的条件操作符必须不加引号,已被识别为基本要素.\par
+        当使用`=='和`!='操作符时,操作符右边的字符串会被认为是一个模式,并基于后面"3.5.8.1小节 模式匹配"所描述的规则进行匹配.如果shell的\textbf{nocasematch}选项(参见"4.3.2小节 Shopt内置命令"中对\textbf{shopt}的描述)被启用,在对字母字符进行匹配时将会忽略大小写.如果所给字符串匹配(使用`=='时)或者不匹配(使用`!!='时)所给模式,其返回状态码是0,否则是1.所给模式的任何部分都要用引号括起来,使它强制被认为是一个字符串.\par
+        其外,一个二元操作符`=\~{}'也被支持,其优先级与`==', '!='是一样的.当使用它时,操作符右边的字符串被认为是扩展正则表达式,并进行相应的匹配.如果所给字符串匹配所给模式,其返回状态码是0,否则是1.如果所给正则表达式有语法上的错误,该条件表达式的返回状态码是2.如果shell的\textbf{nocasematch}选项被启用(参见"4.3.2小节 Shopt内置命令"中对\textbf{shopt}的描述),在对字母字符进行匹配时将会忽略大小写.所给模式的任何部分都要用引号括起来,使它被强制认为是一个字符串.被正则表达式的圆括号子表达式所匹配的子字符串被保存在BASH\_REMATCH数组变量中.BASH\_REMATCH中数组下标为0的元素是匹配整个正则表达式的那部分字符串.BASH\_REMATCH中数组下标为n的元素是匹配第n个圆括号表达式的那部分字符串.\par
+        条件表达式可以用下面的操作符来进行组合,下面的操作符按照优先级降序来进行描述:\par
+        \begin{basedescript}{\desclabelstyle{\nextlinelabel}\desclabelwidth{2.5em}}
+        \item[( \emph{expression} )]
+            返回表达式\emph{expression}的值.该表达式用于改变其他操作符的正常优先级.
+        \item[! \emph{expression}]
+            如果表达式\emph{expression}的值为假,就会返回真.
+        \item[\emph{expression1} \&\& \emph{expression2}]
+            如果表达式\emph{expression1}和表达式\emph{expression2}的值都为真,就会返回真.
+        \item[\emph{expression1} \textbar\textbar \emph{expression2}]
+            如果表达式\emph{expression1}或者表达式\emph{expression2}中任意一个为真,就会返回真.
+        \end{basedescript}
+        对于`\&\&'和`\textbar\textbar'操作符来说,如果表达式\emph{expression1}的值已经足够决定整个条件表达式的值,将不会对表达式\emph{expression2}进行评估.
+    \end{basedescript}
+
+    \subsubsection{组合命令}
+    Bash提供了两种方式来将一系列命令组合在一起,以便当作一个单元来执行.当命令组合在一起后,重定向操作能够对整个命令列表起作用.例如,在这个列表中的所有命令的输入可以被重定向到同一个流里面.\par
+    \begin{basedescript}{\desclabelstyle{\nextlinelabel}\desclabelwidth{2.5em}}
+    \item[()]
+        \begin{quote}
+            ( \emph{list} )
+        \end{quote}
+        将一系列命令放在圆括号之间,导致创建一个子shell环境(参见"3.7.3小节 命令执行环境"),且\emph{list}中的每一个命令都在这个子shell中被执行.由于\emph{list}是在子shell中被执行,当这个子shell执行结束后,期间进行的变量赋值将不再继续生效.
+    \item[\{\}]
+        \begin{quote}
+            \{ \emph{list}; \}
+        \end{quote}
+        将一系列命令放在大括号中间,导致这一系列命令在当前shell环境中被执行.没有子shell会被创建.在\emph{list}后面的分号(或者换行符)是必须的.
+    \end{basedescript}
+    除了是否会创建子shell,在这两个结构之间还有一个微妙的不同(处于历史遗留原因).大括号属于保留字,所以它们和\emph{list}之间必须用空格或者shell的其他元字符分割开.而圆括号属于操作符,被shell认为是单独的符号,即使它们和\emph{list}之间没有用空白字符分割开.\par
+    这两个结构的退出状态码都是\emph{list}的退出状态码.
+    \subsection{协进程}
+    协进程是一个放在\textbf{coproc}保留字之后的shell命令.协进程会在一个子shell中异步地执行,就好象这个命令终止于`\&'控制操作符一样,同时伴随着一个建立在当前shell和协进程之间的双向管道.\par
+    协进程的格式是:
+    \begin{quote}
+        coproc \verb+[+\emph{NAME}\verb+ ]+\emph{command} \verb+[+\emph{redirectioons}\verb+]+
+    \end{quote}
+    这会创建一个名为\emph{NAME}的协进程.如果\emph{NAME}没有被提供,其默认的名字是\emph{COPROC}.如果\emph{command}是一个简单命令(参见"3.2.1小节 简单命令),则不能提供\emph{NAME};否则,它会被解释为简单命令的第一个单词.\par
+    当协进程被执行时,shell会在当前shell的执行环境中创建一个名为\emph{NAME}的数组变量(参见"6.7小节 数组).\emph{command}命令的标准输出通过管道连接到当前shell的一个文件描述符,且该文件描述符的值被保存在\emph{NAME[0]}.\emph{command}的标准输入也通过管道连接到当前shell的一个文件描述符,且该文件描述符的值被保存在\emph{NAME[1]}.这个管道的建立会早于\emph{command}命令所指定的任何重定向(参见"3.6小节 重定向).使用标准的单词扩展后,这两个文件描述符能够用作shell命令的参数和重定向的目标.\par
+    shell衍生出来执行协进程的进程ID被保存在\emph{NAME}\_\textbf{PID}变量中.\textbf{wait}内置命令可用于等待协进程执行结束.\par
+    协进程的返回状态码是\emph{command}命令的退出状态码.
+    \begin{verbatim}
+    # 执行一个协进程,进程名为NAME,所指定的命令是uname.该进程会在后台子shell中执行
+    $coproc uname
+    # 此时有两个方法可以读取到上面uname命令的执行结果.
+    # 方法一: 使用 read 命令的 -u 选项来从指定的文件描述符读取数据
+    $ read -u ${COPROC[0]} line; echo ${line}
+    Linux
+    [1]+  Done                    coproc COPROC uname
+    # 注意,当后台进程执行结束后,输入回车,会看到"[1]+ Done"的提示(如果Bash的语言设置为中文,则提示"[1]+ 完成").此时,COPROC[]的值会被清空,不再有效.
+    # 下面视图再次使用 read -u 从 COPROC[0] 中读取数据,就会报错,此时${COPROC[0]}的值是空.
+    $ read -u ${COPROC[0]} line
+    -bash: read: line: invalid file descriptor specification
+    # 方法二: 使用重定向复制文件描述符的输入:
+    $ coproc uname    # 当读取完协进程的输出后,如果要再次读取,需要再次执行协进程
+    $ cat <& ${COPROC[0]}
+    Linux
+    [1]+  Done                    coproc COPROC uname
+    # 当执行简单命令时,不能提供NAME参数,否则该参数会被当作简单命令的开头部分,也就是命令本身.
+    $ coproc COPROCNAME ls
+    $ coproc COPROCNAME uname
+    [1] 13029
+    $ COPROCNAME: command not found
+
+    # 此时光标会停留在上一行的行首,等待用户输入回车.当输入回车后,会提示"[1]+ Exit 127",表示执行出错.Bash中,退出状态码127正好用于表示"未找到命令".
+    # 这里就是指"COPROCNAME"命令没有找到.且在打印的结果中也可以看到,coproc命令还是使用了默认的名字COPROC,COPROC后面的被认为是要执行的命令
+    [1]+  Exit 127                coproc COPROC COPROCNAME uname
+    # 如果想要指定协进程的NAME参数的话,可以参照下面的方法:
+    # 使用 if 语句来得到一个复合命令
+    $ coproc COPROCNAME if [ -n $(uname) ]; then echo NOT NULL; fi
+    [1] 13085
+    $ cat <& ${COPROCNAME[0]}
+    NOTE NULL
+    -bash: ${COPROCNAME[0}: bad substitution
+    [1]+  Done                    coproc COPROCNAME if [ -n $(uname) ]; then
+        echo NOT NULL;
+    fi
+    # 使用 {} 来得到一个组合命令.类似的,也可以使用().
+    $ coproc COPROCNAME { date; uname; }
+    [1] 13109
+    $ cat <& ${COPROCNAME[0]}
+    Mon Jun 23 20:20:09 CST 2014
+    Linux
+    [1]+  Done                    coproc COPROCNAME { date; uname; }
+    # 如上所述,协进程的进程ID保存在变量NAME_PID中,这里的NAME是coproc保留字的NAME参数的值,默认值为COPROC,举例如下:
+    $ coproc uname
+    [1] 13122
+    $ echo ${COPROC_PID}
+    13122
+    [1]+  Done                    coproc COPROC uname
+    # 可以看到,当协进程被放到后台来执行时,其进程ID会在当前终端中打印出来.
+    \end{verbatim}
+
+    \section{Shell函数}
+    Shell函数将命令组合在一起,便于后续通过一个简单的名字来执行整个组合.它们会像``普通''命令一样被执行.当shell函数的名字像简单命令的名字一样被使用时,关联到这个函数名的一系列命令会被执行.Shell函数会在当前shell环境中被执行;不会创建新的进程来解释这些命令.\par
+    函数需要使用如下的语法来声明:
+    \begin{quote}
+        \emph{name} () \emph{compound-command} \verb+[ +\emph{redirectioons}\verb+ ]+\par
+        or\par
+        function \emph{name} \verb+[()] +\emph{compound-command}\verb+ [+\emph{redirectioons}\verb+ ]+
+    \end{quote}
+    这会定义一个名为\emph{name}的shell函数.\textbf{function}这个保留字是可选的.如果提供了\textbf{function}保留字,则圆括号是可选的.函数体部分是一个复合命令\emph{compound-compound} (参见"3.2.4小节 复合命令).这个复合命令通常是闭合在\{和\}之间的一串命令列表,但也可以是上面所列举的任意复合命令.当函数名\emph{name}就像其他命令名一样被指定时,\emph{compound-command}复合命令就会被执行.当函数被执行时,任何关联到这个shell函数的重定向都会被执行.\par
+    可以使用\textbf{unset}内置命令的\textbf{-f}选项来删除一个函数定义 (参见"4.1小节 Bourne Shell内置命令).\par
+    在进行函数定义时,也会有退出状态码,正常情况下,退出状态码是0.除非遇到一个语法错误或者已经定义了一个同名的只读函数.当执行函数时,该函数的退出状态码是函数体内最后一个被执行命令的退出状态码.\par
+    出于历史原因,函数体会经常用大括号括起来.此时,大括号和函数体之间必须用空白字符或者换行符分割开.这是因为大括号属于保留字,只有当它们在命令列表中被空白字符或者其他的shell元字符分割开时才会识别为保留字.同样的,当使用大括号时,这个命令列表必须终止于分号,`\&',或者换行符.\par
+    在一个函数执行期间,这个函数的参数会成为位置参数 (参见"3.4.1小节 位置参数).一个会被扩展为总位置参数个数的特殊变量`\#'的值会被更新,以反应这个变化.特殊参数\textbf{0}不会被改变.\textbf{FUNCNAME}数组的第一个参数会被设置成当前正在函数的名字.\par
+    函数所处shell的大部分执行环境和它的调用者保持一致.此外还会有这样一些区别: \textbf{DEBUG}和\textbf{RETURN}陷阱不会被继承,除非使用\textbf{declare}内置命令来为这个函数提供了\textbf{trace}属性,或者使用\textbf{set}内置命令开启了\textbf{-o functrace}选项 (这种情况下,所有函数都会继承\textbf{DEBUG}和\textbf{RETURN}陷阱),而除非启用了shell的\textbf{-o errtrace}选项,否则\textbf{ERR}陷阱不会被继承.参见"4.1小节 Bourne Shell内置命令"来查看\textbf{trap}内置命令的描述.\par
+    如果\textbf{FUNCNEST}变量的值被设置为0以上的值,则会定义最大的函数嵌套级别.函数调用超过这个限制会引起整个命令被终止.\par
+    如果在函数内执行了\textbf{return}内置命令,该函数就执行结束,然后恢复执行该函数之后的下一个语句.在恢复执行之前,所有关联到\textbf{RETURN}陷阱的命令都会先被执行.当函数执行结束时,位置参数的值以及特殊变量`\#'的值会被恢复成执行函数之前的值.如果提供了一个数字参数给\textbf{return},那么这个数字就是函数的退出状态码;否则,这个函数的退出状态码就是在执行\textbf{return}之前的最后一个命令的退出状态码.\par
+    可以使用\textbf{local}内置命令来声明函数内的局部变量.这些变量将仅仅在函数以及该函数所调用的命令内可见.\par
+    可以使用\textbf{declare}或者\textbf{typeset}命令的\textbf{-f}选项来列举出函数名和函数定义 (参见"4.2 Bash内置命令").而\textbf{declare}或者\textbf{typeset}的\textbf{-F}选项将只会列举出函数名(也可能会列出函数所在的源文件和行号,如果shell的\textbf{extdebug}选项被开启的话).可以使用\textbf{export}内置命令的\textbf{-f}选项来导出函数,以便子shell能够自动包含这些函数的定义.注意,当shell函数和shell变量具有相同命令时,将会导致多个同名的项被传递到shell的子环境中.这种情况下必须小心对待,以避免出现问题.\par
+    函数是可以递归的.\textbf{FUNCNEST}变量可以用于限制函数调用堆栈的深度,并限制函数调用的数目.默认情况下,递归调用的数目没有被限制.
+
+    \section{Shell参数}
+    参数是一个用于保存值的实体.它可以是一个名字,或者是下面列举的特殊字符之一.变量是一个被\textbf{name}名字所表示的参数.变量拥有一个值,以及零个或多个属性.属性可以通过\textbf{declare}内置命令来设置.\par
+    当参数被赋予一个值后,就表示设置了一个该参数.空字符串 (\textbf{null})是一个有效的值.一旦变量被设置后,它只能通过\textbf{unset}内置命令来取消设置.\par
+    变量可以通过下面形式的语句来进行赋值
+    \begin{quote}
+        \emph{name}=\verb+[+values\verb+]+
+    \end{quote}
+    如果没有提供\emph{values},则该变量会被赋值为空字符串.所有的值都会进行波浪号扩展,参数和变量扩展,命令输出替换,算术扩展和引用移除.如果该变量设置了它的\textbf{interger}属性,则\emph{values}被当做算术表达式来评估,即使没有使用\textbf{\$((\ldots))}扩展也是一样.除了下面描述的\textbf{``\$@''}之外,单词分离不会被执行.文件名扩展不会被执行.赋值语句也可以作为\textbf{alas}, \textbf{declare}, \textbf{typeset}, \textbf{export}, \textbf{readonly}, 和 \textbf{local} 内置命令的参数.\par
+    在赋值语句中将一个值赋给shell变量或者数组元素时,`\textbf{+=}'操作符可以用于追加或者叠加到该变量的前一个值上.当`\textbf{+=}'被用在设置了\emph{integer}属性的变量上时,\emph{value}被作为一个算术表达式来频谷,并加上该变量当前的值,其当前值也会作为算术表达式来评估.当`\textbf{+=}'通过复合赋值语句用在数组变量上时,当前变量的值不会被重置(如果使用`='就会重置),且新的值会追加到该数组最大下标的下一个下标之后(针对索引数组),或者添加额外的键值对(针对关联数组).当用在一个字符串值的变量上时,\emph{value}会被扩展,并追加到该变量的值上.
+    \begin{verbatim}
+    john:~$a=4
+    john:~$echo $a
+    4
+    john:~$a+=6
+    john:~$echo $a
+    46        # 并不会打印10,而是打印46,a+=6,将6追加到了原来的4后面
+    \end{verbatim}
+
+    \subsection{位置参数}
+    位置参数是被一个或多个数字所表示的参数,除了单个数字0之外.当shell发起调用时,会用shell的参数来为位置参数赋值,且可以用\textbf{set}内置命令来为位置参数重新赋值.位置参数\textbf{N}可以通过\textbf{\$\{N\}}来引用,当\textbf{N}由单个数字组成时,也可以写为\textbf{\$N}.位置参数不能通过赋值语句来赋值.\textbf{set}和\textbf{shift}内置命令可以用于设置和取消设置它们.当shell函数被执行时,位置参数会被暂时替换.\par
+    如果一个位置参数的组成不止一个数字,在扩展它时,必须用大括号将它括起来.
+
+    \subsection{特殊参数}
+    shell会特别对待一些参数.这些参数只能用于引用,不允许对它们赋值.
+    \begin{basedescript}{\desclabelstyle{\nextlinelabel}\desclabelwidth{2.5em}}
+    \item[*] 从1开始,扩展成往后的所有位置参数.当这个扩展发生在双引号内部时,它扩展为单个单词,其值有每个位置参数的值组成,且每个位置参数被\textbf{IFS}特殊变量的第一个字符分割开.也就是说,\textbf{``\$*''}相当于\textbf{``\$1c\$2c\ldots''},其中\emph{c}是\textbf{IFS}变量的第一个字符.如果\textbf{IFS}没有被设置,这些位置参数会被空格分割开.如果\textbf{IFS}是空,所有位置参数会连结在一起,中间没有分隔符.
+    \item[@] 从1开始,扩展成所有位置参数.当这个扩展发生在双引号内部时,每个参数扩展成单独的单词.也就是说,\textbf{``\$@''}相当于 \textbf{``\$1''} \textbf{``\$2''} \ldots.如果双引号扩展发生在一个单词内部,那么第一个位置参数扩展得到的值会连结在原有单词的开始部分,而最后一个位置参数扩展得到的值会连结在原有单词的后面部分.如果没有位置参数时,\textbf{``\$@''}和\textbf{\$@}不会扩展成任何东西 (就好象它们被移除了).
+        \begin{verbatim}
+        $* 和 $@ 的区别在于,"$*"相当于"$1c$2c...$n",其中,c是IFS变量的第一个
+        字符, 而"$@"相当于"$1" "$2" ...
+        IFS变量的第一个字符并不一定就是空格,例如设置IFS=:,则"$*"就相当于
+        "$1:$2:...$n",此时,"$@"还是相当于"$1" "$2" ....即"$@"扩展的参数就是
+        用空格分割的,和IFS变量的值无关.
+        在没有特殊需要的情况下,推荐使用$@,不要使用$*,避免IFS变量被赋予其他
+        值造成异常.
+        \end{verbatim}
+    \item[\#] 扩展成位置参数的个数,其值为十进制.
+    \item[?] 扩展成上一个在前台执行的管道命令的退出状态码.
+    \item[-] (一个连字符) 扩展为当前的选项标志位.该标志由上一次调用\textbf{set}内置命令来指定,或者有shell自身来设置 (例如使用\textbf{-i}选项).
+    \item[\$] 扩展为当前shell的进程ID号.在一个()子shell中,它扩展为调用它的那个shell进程ID号,而不是子shell的进程ID号.
+    \item[!] 扩展为上一个在后台(异步)执行的命令进程ID号.
+    \item[0] 扩展为当前shell或者shell脚本的名字.这会在shell初始化的时候设置.如果Bash是由一个文件内的命令所调用,\textbf{\$0}会设置成那个脚本的名字.如果Bash开始执行于\textbf{-c}选项,那么\textbf{\$0}被是恶值所要执行字符串之后的第一个参数,如果提供了这样一个参数的话.否则,它会被设置为用于用来调用Bash的那个文件名,该文件名作为参数0来提供.
+    \item[\_] (一个下划线) 在shell启动时,设置为用于调用该shell的绝对路径,或者当前环境中将要被执行的shell脚本,或者参数列表.接着,在扩展之后,再扩展为上一个命令的最后一个参数.也会设置为用于调用每个被执行命令的完整路径名,并放置在环境中,导出给那个命令.当检查电子邮件时,这个参数保存电子邮件的文件名.
+    \end{basedescript}
+
+    \section{Shell扩展}
+    当命令行输入的内容被划分成标识符后,接着会执行扩展操作.下面列举了七种扩展类型:
+    \begin{itemize}
+        \item 大括号扩展
+        \item 波浪号扩展
+        \item 参数和变量扩展
+        \item 命令输出替换
+        \item 算术扩展
+        \item 单词分离
+        \item 文件名扩展
+    \end{itemize}
+    执行扩展的顺序是: 大括号扩展,波浪号扩展,参数,变量,和算术扩展,命令输出替换(按照从左到右的方式),单词分离,以及文件名扩展.\par
+    一些系统还支持另外一种扩展: 进程替换.它跟参数,变量,算术扩展,以及命令输出替换会在同一时间执行.\par
+    只有大括号扩展,单词分离,和文件名扩展能够改变扩展后的单词数目;其他扩展会将一个单词扩展为另一个单词.但是, 对``\$@''和``\$\{name[@]\}''的扩展是个例外.这两个扩展也会改变扩展后的单词数目.\par
+    进行完所有扩展后,会执行括号移除 (参见"3.5.9小节 括号移除").
+
+    \subsection{大括号扩展}
+    大括号扩展是一种用于生成任意字符串的机制.这种机制类似于文件名扩展,但是大括号扩展所生成的文件名可以不存在.大括号扩展的模式采用这样一种方式: 一个可选的前言,随后跟着一对大括号,大括号中是一系列逗号分割开的字符串或者是一个连续表达式,然后再跟着一个可选的附录.这个前言会被放在大括号内的每一个字符串前面,且附录会追加到每一个生成的字符串后面,按照从左到右的顺序扩展.\par
+    大括号扩展可以嵌套.每个扩展所生成的字符串不会被排序;从左到右的顺序会被保留.例如,
+    \begin{verbatim}
+        $ echo a{d,c,b}e
+        adc ace abe
+    \end{verbatim}
+    一个连续表达式具有 \{x..y[..incr]\} 的形式.其中, x 和 y 要么是整数,要么是单个字母,而\emph{incr}是一个可选的整数增量值.当提供的是整数时,这个表达式扩展成在 x 和 y 之间的每一个数字,包含 x 和 y.所提供的整数可以前置一个 `0' 来强制每个术语具有相同宽度.当 x 或者 y 从 0 开始时,shell尝试去强制所有生成的术语都包含相同数目的数字,如果需要的话会用0填充.当提供的是字母时,这个表达式根据词典顺序扩展成 x 和 y 之间的每一个字母,包含 x 和 y.注意, x 和 y 必须具有相同的类型.当提供了增量值时,它被当作每个术语之间的差额.根据情况不同,默认的增量值会是 1 或者 -1.\par
+    大括号扩展的执行早于任何其他扩展,且其他扩展的特殊字符会在生成的结果中保持不变.它完全基于文本.Bash不会对扩展的上下文或者大括号中的文本进行任何句法上的解释.为了避免和参数扩展有冲突,`\$\{'这个字符串不会被视作合适的大括号扩展.\par
+    一个正确形式的大括号扩展必须包含没有括起来的开始和结束大括号,以及至少一个没有括起来的逗号或者一个有效的连续表达式.任何形式有误的大括号表达式会保持不变.\par
+    一个 \{ 或者 `,' 可以使用反斜线括起来以阻止它被视作大括号扩展的一部分.\par
+    当需要生成的字符串具有比上面例子更长的相同前缀时,这个结构通常用作缩写:
+    \begin{verbatim}
+    mkdir /usr/local/src/bash/{old,new,dist,bugs}
+    \end{verbatim}
+    或者
+    \begin{verbatim}
+    chown root /usr/{ucb/{ex,edit},lib/{ex?.?*,how_ex}}
+    \end{verbatim}
+
+    \subsection{波浪号扩展}
+    如果一个单词由一个没有括起来的波浪号字符 (`\~{}') 开头,那么从该波浪号往后,直到第一个没有括起来的斜线('/')之前的所有字符 (如果没有任何括起来的斜线的话,就是所有字符) 都被认为是一个波浪号-前缀.如果波浪号-前缀中的字符都没有被括起来,那么波浪号-前缀中跟在波浪号之后的那些字符被当成一个可能的登录名来对待.如果这个登录名是空字符串,则这个波浪号被替换成shell变量\textbf{HOME}的值.如果没有设置\textbf{HOME}变量,则再替换为执行当前shell的那个用户的家目录.否则,这个波浪号-前缀被替换成所指定登录名关联到的家目录.\par
+    如果波浪号-前缀是`\~{}+',则该波浪号-前缀被替换成shell变量\textbf{PWD}的值.如果波浪号-前缀是`\~{}-',那么在设置了shell变量\textbf{OLDPWD}的情况下,该波浪号前缀会被替换成\textbf{OLDPWD}的值.如果没有设置该变量,则'\~{}-'会保持不变.
+    \begin{verbatim}
+    john:~$echo ~-
+    ~-
+    john:~$cd main
+    john:~/main$echo $OLDPWD
+    /home/john
+    john:~/main$echo ~-
+    /home/john
+    \end{verbatim}
+    如果波浪号-前缀中跟在波浪号后面的字符由数字N组成,该数字N前面可选的跟着一个`+'或者一个`-',则这个波浪号-前缀会替换成目录堆栈中的相应元素,就如同将波浪号-前缀中跟在波浪号后面的字符作为\textbf{dirs}内置命令的参数所显示的结果 (查看"6.8小节 目录堆栈").如果波浪号-前缀包含一个没有前置`+'或者`-'的数字,那么假设提供的是`+'.\par
+    如果所提供的登录名无效,或者波浪号扩展失败,则整个单词保持不变.\par
+    在每个变量赋值语句中,会在遇到一个`:'或者第一个`='之后立刻检查没有括起来的波浪号-前缀.在这些情况下,波浪号扩展也会被执行.因此,一个可能的用途是用带有波浪号的文件名来赋值给\textbf{PATH},\textbf{MAILPATH},和\textbf{CDPATH},且由shell来分配扩展后的值.\par
+    下面的表格演示了Bash如何对待没有括起来的波浪号-前缀:
+    \begin{basedescript}{\desclabelstyle{\nextlinelabel}\desclabelwidth{2.5em}}
+    \item[\~{}] 等同于\textbf{\$HOME}的值
+    \item[\~{}/foo] \textbf{\$HOME/foo}
+    \item[\~{}fred/foo] 用户\textbf{fred}的家目录下的\textbf{foo}子目录
+    \item[\~{}+/foo] \textbf{\$PWD/foo}
+    \item[\~{}-/foo] \textbf{OLDPWD-'\~{}-'}/foo
+    \item[\~{}N] 等同于`\textbf{dirs +\emph{N}}'命令所显示的字符串
+    \item[\~{}+N] 等同于`\textbf{dirs +\emph{N}}'命令所显示的字符串
+    \item[\~{}-N] 等同于`\textbf{dirs +\emph{N}}'命令所显示的字符串
+    \end{basedescript}
+    \begin{verbatim}
+    默认情况下, `dirs' 命令只会打印一个路径.例如:
+    john:~$dirs
+    ~
+    john:~$cd main
+    john:~/main$dirs
+    ~/main
+    john:~/main$cd 1-project/
+    john:~/main/1-project$dirs
+    ~/main/1-project
+    john:~/main/1-project$dirs +2
+    bash: dirs: 目录栈为空
+    john:~/main/1-project$dirs +1
+    bash: dirs: 目录栈为空
+    使用 help dirs  查看 dirs 内置命令的帮助信息,显示如下:
+    dirs: dirs [-clpv] [+N] [-N]
+        Display directory stack.
+
+        Display the list of currently remembered directories.  Directories
+        find their way onto the list with the `pushd' command; you can get
+        back up through the list with the `popd' command.
+    即要想让dirs显示的目录栈不为空,要指定`pushd'命令将路径压入目录堆栈中.
+    john:~/main/1-project$pushd ./      # 将当前目录路径压入目录堆栈
+    ~/main/1-project ~/main/1-project
+    john:~/main/1-project$dirs
+    ~/main/1-project ~/main/1-project
+    john:~/main/1-project$cd
+    john:~$dirs         # 现在目录堆栈有两个路径
+    ~ ~/main/1-project
+    john:~$pushd ./
+    ~ ~ ~/main/1-project
+    john:~$cd main/
+    john:~/main$dirs
+    ~/main ~ ~/main/1-project
+    john:~/main$dirs +1
+    ~
+    john:~/main$dirs +2
+    ~/main/1-project
+    john:~/main$dirs +3
+    bash: dirs: 3: 目录栈索引 越界
+    john:~/main$dirs +0
+    ~/main
+    john:~/main$dirs -0
+    ~/main/1-project
+    john:~/main$dirs -1
+    ~
+    john:~/main$dirs -2
+    ~/main
+    \end{verbatim}
+
+    \subsection{Shell参数扩展}
+    `\$'字符引入参数扩展,命令输出替换,或者算术扩展.要被扩展的参数名或者符号可以闭合在大括号中.大括号是可选的,但可以用于保护要被扩展的变量,而从避免紧跟在变量名之后的字符被解释为变量名的一部分.
+    \begin{verbatim}
+    john:~$name="NAME"
+    john:~$echo $name
+    NAME
+    john:~$echo $namefile
+
+    john:~$echo ${name}file
+    NAMEfile
+    \end{verbatim}
+    当使用大括号时,所匹配的结束大括号是第一个没有被反斜线转义或者不在一个括起来的字符串且没有嵌入在算术扩展,命令输出替换,参数扩展中的`\}'.\par
+    参数扩展的基本形式是\textbf{\$\{\emph{parameter}\}}.这个表达式会替换成参数\emph{parameter}的值.当\emph{parameter}是一个带有超过一个以上数字的位置参数,或者当\emph{parameter}后面紧跟着一个不被解释为它名字的一部分的字符时,大括号是必须的.\par
+    当\emph{parameter}的第一个字符是一个感叹号(!)时,会引入一个间接变量级别.Bash使用形成于\emph{parameter}其他部分(即除了感叹号之外的其他部分)的变量的值来作为变量的名字;然后再扩展这个变量,且扩展后的值被用在这次替换的最后部分,而不是用\emph{parameter}变量自身的值.这个被称之为间接扩展.下面描述的的\$\{!\emph{prefix}\}和\$\{!name[@]\}不会使用这种扩展方式.该感叹号必须紧跟在左边大括号之后才能引入间接扩展.\par
+    \begin{verbatim}
+    john:~$tian=xia      # 变量tian的值是xia
+    john:~$xia=test      # 变量xia的值是test
+    john:~$echo ${tian}  # 查看变量tian的值
+    xia
+    john:~$echo ${!tian} # 使用间接扩展方式,变量tian的值是xia,而变量xia的
+    test                 # 值是test,打印的结果就是test.
+    \end{verbatim}
+    在下面列举的每一个情况中,\emph{word}是波浪号扩展,参数扩展,命令输出替换,和算术扩展的主题.\par
+    当使用下面描述的形式,没有执行子字符串扩展时,Bash测试一个参数是否已经设置或者是否为空.省略冒号会导致仅仅测试一个参数是否已经设置.换句话说,如果包含了冒号,这个操作会测试\emph{parameter}'s的是否存在和它的值是否不是空;如果省略冒号,这个操作仅仅测试是否存在.
+    \begin{basedescript}{\desclabelstyle{\nextlinelabel}\desclabelwidth{2.5em}}
+    \item[\$\{parameter:-word\}] 如果\emph{parameter}没有设置或者为空,则对\emph{word}的扩展会进行替换.否则,\emph{parameter}的值会被替换.
+        \begin{verbatim}
+        john:~$tian=xia   # 设置了变量tian,且其值为xia
+        john:~$echo ${test:-tian}   # 变量test没有设置,这里输出tian这个字符
+        tian              # 串,而不是输出变量tian的值
+        john:~$echo ${tian:-file}   # 变量tian设置了,则输出变量tian的值
+        xia
+        john:~$echo ${test:-~}   # 如上面提到的,由于test没有设置,会对word
+        /home/john    # 进行扩展,`~'被扩展为家目录路径.word想要被扩展,必须
+        john:~$echo ${test:-$tian}  # 写为可扩展的形式,上面只写为"-tian"并
+        xia    # 不会扩展为变量tian的值,而写为"-$tian"就会进行参数扩展.
+        \end{verbatim}
+    \item[\$\{parameter:=word\}] 如果\emph{parameter}没有设置或者为空,则\emph{word}扩展后的只被赋给\emph{parameter}.接着会替换成\emph{parameter}的值.位置参数和特殊参数不能通过这种方式来赋值.
+        \begin{verbatim}
+        实际上,当parameter没有设置或者为空时,整个表达式扩展后的值就是word扩
+        展后的值.且扩展结束后,parameter就会被设置.
+        john:~$unset test       # 取消设置变量test
+        john:~$echo ${test:=~}  # ~会扩展为家目录路径,然后赋值给test变量,再
+        /home/john              # 扩展为test变量的值.显然,test变量的值就是
+        john:~$echo ${test}     # ~扩展后的值.查看变量test的值,也确实如此.
+        /home/john
+        \end{verbatim}
+    \item[\$\{parameter:?word\}] 如果\emph{parameter}没有设置或者为空,\emph{word}扩展后的值(或者一个有效的消息,如果没有提供\emph{word}的话)会被写到标准错误输出上,如果当前shell不是可交互,它会退出.否则,会替换成\emph{parameter}的值.
+        \begin{verbatim}
+        srv:~$ unset test
+        srv:~$ msg="The test is unset or null"
+        srv:~$ echo ${test:?$msg}   # 变量test没有设置,则打印"$msg"对应的值
+        -bash: test: The test is unset or null
+        srv:~$ echo ${test:?}   # 如果word没有提供,则打印默认的提示信息
+        -bash: test: parameter null or not set
+        srv:~$ echo ${test:?~}  # 可以看到,在打印word扩展后的值时,会先打印
+        -bash: test: /home/work/john  一个"-bash test: "字符串
+        \end{verbatim}
+    \item[\$\{parameter:+word\}] 如果\emph{parameter}没有设置或者为空,没有任何东西会被替换,否则替换为\emph{word}扩展后的值.
+        \begin{verbatim}
+        实际上,上面描述的是什么都不会替换,这个并不太准确,应该是替换为空.
+        srv:~$ echo ${test:+~}   # 可以看到,变量test没有被设置时,整个表达
+                                 # 式打印为空,这个表达式并不会保持不变
+        srv:~$ echo "good-${test:+~}"  # 这个可以更明显的看到,替换为空
+        good-
+        srv:~$ test="abcdefg"    # 当变量test被设置后,就会替换为word扩展后
+        srv:~$ echo ${test:+~}   # 的值.这里的word是`~',也就是家目录路径.
+        /home/work/john
+        \end{verbatim}
+    \item[\$\{parameter:offset\} / \$\{parameter:offset:length\}]
+        从\emph{parameter}的第\emph{offset}个字符开始,扩展\emph{length}个字符.如果省略了\emph{length},则从\emph{parameter}的第\emph{offset}个字符开始一直扩展到结尾.\emph{length}和\emph{offset}都是算术表达式.这个称之为子字符串扩展.\par
+        如果\emph{offset}评估后的数值小于0,那么这个值被用作\emph{parameter}的值的末尾的偏移.如果\emph{length}评估后的数值小于0,且\emph{parameter}不是`@',也不是一个索引数组或者关联数组,它会被解释为\emph{parameter}的值的末尾的偏移,而不是当作总的字符数目,且这个扩展是在这两个偏移之间的字符.如果\emph{parameter}是`@',结果是从\emph{offset}往后的第\emph{length}个位置参数.如果\emph{parameter}是一个索引数组名,且下标是`@'或者`*',结果是从\emph{\$\{parameter[offset]\}}往后的第\emph{length}个数组元素.一个负数的\emph{offset}被认为关联到所指定数组最大下标的下一个值.子字符串扩展对一个关联数组产生未定义的行为.\par
+        注意,一个负数的偏移量必须用至少一个空格和冒号分割开,以避免和`:-'表达式产生混淆.子字符串下标是从0开始,数非使用了位置参数.位置参数的下标默认从1开始.如果\emph{offset}是0,且使用了位置参数,\textbf{\$@}会前置给整个列表.
+        \begin{verbatim}
+        注意,在进行子字符串扩展时,parameter被认为是一个扩展表达式,而不是一个字符串.
+        john:~$unset tian      # 取消设置变量tian
+        john:~$echo ${tian:2}  # 这里实际上要扩展的是变量tian的值,而不是
+                               # 字符串"tian"本身,而tian没有值,扩展为空
+        john:~$tian=hello_world  # 为变量tian赋值
+        john:~$echo ${tian:2}  # 再次扩展,下标从0开始,则偏移量2对应的是e
+        llo_world         # 后面的l字符,得到的结果是"llo_world"
+        john:~$echo ${tian:2:3}  # 从第2个字符开始,扩展总共三个字符,得到
+        llo                      # "llo"
+        john:~$echo ${tian: -2:2} # 注意,当offset的值为负数时,offset和
+        ld             # 冒号之间必须用至少一个空格分割开,以避免被认为是
+        john:~$echo ${tian:-2:2}   ":-"操作.可以看到": -2:2"从倒数第二个
+        hello_world   # 字符开始,扩展两个字符.而":-2:2"会打印变量tian的值
+        john:~$unset tian   # 当取消设置变量tian后,":-"操作会打印word扩展
+        john:~$echo ${tian:-2:2} # 后的值.这里word不是一个扩展表达式,就直
+        2:2  # 接word本身的内容,即"2:2",可见最后面的":2"并不被认为是长度值
+        john:~$tian=hello_world
+        srv:~$ echo ${tian: -7:-2}  # 当offset和length都是负数时,也可以.
+        lo_wo  # 此时,length还是表示从$tian的值的末尾数起第偏移量.
+        srv:~$ echo ${tian: -4:-7}  # 如果length的值在offset的值前面时,无法
+        -bash: -7: substring expression < 0  # 组成子字符串,会报错.
+        john:~$echo ${tian:2:-1} # 当length的值为负数时,它不再表示总的
+        llo_worl  # 字符数,而是表示从$tian的值的末尾数起的偏移量,最后扩展
+        john:~$echo ${tian:2:-2} # 的结果是在offset和length之间的所有字符.
+        llo_wor       # 从第二个字符开始,倒数第一个字符之前,即"llo_worl"
+        \end{verbatim}
+    \item[\$\{!prefix*\} / \$\{!prefix@\}]
+        扩展成以\emph{prefix}开头的变量名,彼此之间用用\textbf{IFS}特殊变量的第一个字符分割开.当使用了`@'且这个扩展出现在双引号内时,每个变量名扩展为单独的单词.
+        \begin{verbatim}
+        john:~$tian=TIAN
+        john:~$tianxia=TIANXIA
+        john:~$echo ${!tian*}
+        tian tianxia
+        john:~$echo ${!tian@}
+        tian tianxia
+        \end{verbatim}
+    \item[\$\{!name[@]\} / \$\{!name[*]\}]
+        如果\emph{name}是一个数组变量,那么扩展为\emph{name}中已经被赋值的数组下标(或者键名).注意,不是扩展为数组元素的值.如果\emph{name}不是一个数组,当\emph{name}已经设置过,则扩展为0,否则扩展为空.当使用了`@'且这个扩展出现双引号中时,没有键名扩展为单独的单词.
+        \begin{verbatim}
+        i=(a b c)
+        john:~$declare -p i   # 可以看到, 数组i 中已经被赋值了下标是0,1,2
+        declare -a i='([0]="a" [1]="b" [2]="c")'
+        john:~$echo ${!i[@]}
+        0 1 2                    # 打印出已经被赋值了的数组下标值,而不是
+        john:~$echo ${!i[*]}     # 打印数组元素的值
+        0 1 2
+        john:~$i[5]="d"
+        john:~$declare -p i  # 此时,被赋值的数组下标是0,1,2,5
+        declare -a i='([0]="a" [1]="b" [2]="c" [5]="d")'
+        john:~$echo ${!i[*]}  # 打印出来的也是0,1,2,5.没有赋值的下标3,4不会
+        0 1 2 5               # 被打印
+        john:~$unset test
+        john:~$echo ${!test[@]}  # 当test没有设置时,这个表达式扩展为空
+
+        john:~$test=1
+        john:~$echo ${!test[@]}  # 当test被设置时,这个表达式扩展为0
+        0
+        \end{verbatim}
+    \item[\$\{\#parameter\}]
+        这个表达式会替换成\emph{parameter}所扩展后的值中的字符个数.如果\emph{parameter}是`*'或者`@',替换后的值是位置参数的个数.如果\emph{parameter}是一个数组名且所给的下标是`*'或者`@',替换后的值是数组元素的个数.
+    \item[\$\{parameter\#word\} / \$\{parameter\#\#word\}]
+        这个\emph{word}会按照文件名扩展的方式来扩展得到一个模式.如果这个模式匹配\emph{parameter}扩展后的值的开始部分,那么整个扩展的结果是\emph{parameter}扩展后的值中除了最短匹配模式(使用`\#'时)或者最长匹配模式(使用`\#\#'时)之外的部分.如果\emph{parameter}是`@'或者`*',这个模式移除操作会依次应用在每个位置参数上,最后的扩展结果是合成后的列表.如果\emph{parameter}是一个数组变量且所给下标是`@'或者`*',这个模式移除操作会依次应用在每一个数组元素上,最后的扩展结果是合成后的列表.
+    \item[\$\{parameter\%word\} / \$\{parameter\%\%word\}]
+        这个\emph{word}会按照文件名扩展的方式来扩展得到一个模式.如果这个模式匹配\emph{parameter}扩展后的值的末尾部分,那么整个扩展的结果是\emph{parameter}扩展后的值中除了最短匹配模式(使用`\%'时)或者最长匹配模式(使用`\%\%'时)的部分.如果\emph{parameter}是`@'或者`*',这个模式移除操作会依次应用在每个变量参数上,最后的扩展结果是合成后的列表.如果\emph{parameter}是一个数组变量且所给下标是`@'或者`*',这个模式移除操作会依次应用在每一个数组元素上,最后的扩展结果是合成后的列表.
+    \item[\$\{parameter/pattern/string\}]
+        这个\emph{pattern}会按照文件名扩展的方式来扩展得到一个模式.\emph{parameter}会被扩展,且其值中最长匹配\emph{pattern}的部分会被替换成\emph{string}.如果\emph{pattern}开始于`/',所有匹配\emph{pattern}的地方都被替换成\emph{string}.通常仅仅替换第一个匹配的地方.如果\emph{pattern}开始于`\#',它必须匹配\emph{parameter}扩展后的值的开始部分.如果\emph{pattern}开始于`\%',它必须匹配\emph{parameter}扩展后的值的末尾部分.如果\emph{string}是空,匹配\emph{pattern}的地方会被删除,且跟在\emph{pattern}之后的 \textbf{/} 可以省略.如果\emph{parameter}是`@'或者`*',这个替换操作对依次应用在每个变量上,最后的扩展结果是合成后的列表.如果\emph{parameter}是一个数组变量且所给下标是`@'或者`*',这个替换操作依次应用在每个数组元素上,最后的扩展结果是合成后的列表.
+    \item[\$\{parameter\^{}pattern\} / \$\{parameter\^{}\^{}pattern\}]
+    \item[\$\{parameter,pattern\} / \$\{parameter,,pattern\}]
+        这个扩展修改\emph{parameter}中的字母字符的大小写.这个\emph{pattern}会按照文件名扩展的方式来扩展得到一个模式.该`\^{}'操作符转换匹配\emph{pattern}的小写字母为大写字母;该`,'操作符转换匹配\emph{pattern}的大写字母为小写字母.该`\^{}\^{}'和`,,'扩展转换扩展后的值中每一个匹配的字符;而`\^{}'和`,'扩展仅仅匹配并转换扩展后的值的第一个字符.如果省略\emph{pattern},会被当作提供了`?',将匹配所有字符.如果\emph{parameter}是`@'或者`*',这个大小写修改操作会依次应用于每一个位置参数,最后的扩展结果是合成后的列表.如果\emph{parameter}是一个数组变量且所给下标是`@'或者`*',这个大小写修改操作会依次应用于数组中的每一个元素,扩展后的结果是合成后的列表.
+    \end{basedescript}
+
+    \subsection{命令输出替换}
+    命令输出替换允许用命令的输出来替换这个命令本身.命令输出发生在命令被闭合
+    在下面形式的时候:
+    \begin{quote}
+        \$(\emph{command})
+    \end{quote}
+    或者
+    \begin{quote}
+        `\emph{command}`
+    \end{quote}
+    Bash先执行\emph{command}命令,然后用这个命令的标准输出来作为整个扩展的结果.结果中会删除所有的尾部换行符.嵌入的换行符不会被删除,但是它们可能会在进行单词分离时被移除.\$(cat file)这个命令输出替换可以用等价但是执行速度更快的\$(< file)来代替.\par
+    当使用老式的反引号替换形式时,反斜线保持它的文本意思,除了它后面跟着`\$',``',或者`\textbackslash'.第一个没有前置反斜线的反引号终止这个命令输出替换.当使用\$(command)的形式时,圆括号内的所有字符组成整个命令;没有哪个字符会被特殊对待.\par
+    命令输出替换可以嵌套.要在反引号形式中嵌套时,要用反斜线对内部的反引号进行转义.\par
+    如果这个替换出现在双引号内,替换后的结果不会再进行单词分离和文件名扩展的操作.
+
+    \subsection{算术扩展}
+    算术扩展允许对一个算术表达式进行评估并替换为评估后的值.算术表达式的格式为:
+    \begin{quote}
+        \$(( \emph{expression} ))
+    \end{quote}
+    这个表达式被视作包含在双引号里面,但是位于圆括号内的双引号不会被特殊对待.表达式的所有符号都会进行参数扩展,命令输出替换,和引用移除.算术表达式可以嵌套.\par
+    这个评估会根据后面列举的规则(参见 "6.5小节 Shell算术运算")来进行.如果这个表达式是无效的,Bash打印一个失败指示信息到标准错误输出,且不再进行替换.
+
+    \subsection{进程替换}
+    进程替换会在支持有名管道(FIFOs)或者使用\textbf{/dev/fd}方法来命名所打开文件的系统上被支持.它采用这样的形式
+    \begin{quote}
+        \textless(list)
+    \end{quote}
+    或者
+    \begin{quote}
+        \textgreater(list)
+    \end{quote}
+    要处理的\emph{list}在运行时,会将它的输入或者输出连接到一个FIFO或者在\textbf{/dev/fd}中的一些文件.作为整个扩展的结果,这个文件的名字会作为参数传递给当前命令.如果使用了\textgreater(list)的形式,写入那个文件的数据将会作为\emph{list}的输入.如果是使用了\textless(list)的形式,被作为参数传递的文件将会被读取以便获取\emph{list}的输出.注意,在\textless或者\textgreater和左圆括号之间不能有空格,否则这个结构将会被解释为重定向.\par
+    当被支持时,进程替换会和参数扩展,变量扩展,命令输出替换,算术扩展同时执行.
+    \begin{verbatim}
+    进程替换概念的重点在于,这个替换所生成的结果是一个文件名.这个文件名会
+    传递给当前命令,作为该命令的参数.当前命令必须能接受文件名参数并处理.
+    john:~$ls <(pwd)  # 可以看到,这个命令的执行结果是"/dev/fd/63"."63"这个
+    /dev/fd/63    # 数字是具体的文件描述符,在不同机器上可能有所不同.
+    john:~$ls /etc/passwd  # 实际上,ls命令可以接收文件名作为参数,当这个文件
+    /etc/passwd   # 名不是目录时,就会打印这个文件名.
+    john:~$ls -l <(pwd)   # 这个可以进一步看到,"ls -l"命令把"<(pwd)"的输出
+                          # 作为一个参数,且该参数是一个文件名.
+    lr-x------ 1 john john 64  7月  2 16:41 /dev/fd/63 -> pipe:[251400]
+    john:~$pwd <(date)  # 当一个命令不以文件名作为参数时, "<(list)"进程替换
+    /home/john      # 的文件名将不被处理.
+    john:~$cat <(pwd)  # 上面的"ls <(pwd)"只打印了"/dev/fd/63",并没有打印
+          # "<(pwd)"中pwd命令的输出结果,如果想打印pwd命令的输出结果,必须
+          # 将这个文件名传递给一个能够读取这个文件内容的命令,且该命令要将
+          # 读取到的结果打印出来.也就是说,如何处理进程替换得到的文件名是
+          # 由当前命令自己决定的.所以使用"cat <(pwd)"命令就能看到pwd命令的
+    /home/john # 的输出结果.类似于pwd命令的输出结果保存在"/dev/fd/63"中一样
+
+    ">(list)"方式也类似.这个方式会产生一个文件名,当前命令要使用这个文件名
+    作为参数,并写数据到这个文件,则写入的内容就会作为list命令的输入.如果当前
+    命令不以文件名作为参数,或者当前命令不会写数据到所给文件名上,则list命令
+    将读取不到输入.如果当前写数据到文件里面,但list命令不从标准输入读取内容,
+    那么写入文件中的数据也不会被处理.
+    john:~$echo test > >(cat)  # 注意,在第一个">"和">(cat)"之间有一个空格
+        # 第一个">"表示重定向,"echo test"命令输出的结果将会重定向到其后的
+        # 的文件上.可以类似的认为, ">" 重定向操作符以文件名作为参数,并写数
+        # 据到文件上.则这个输入将作为">(cat)"里面的cat命令的输入,所以下面
+    john:~$test  # 打印出"test".在打印出"test"后,光标会停在下一行的行首,且
+           # 没有打印出bash的提示符,需要按下回车,才会再次换行,显示提示符
+    john:~$echo "test" >(cat)  # 去掉上个命令中的 ">" 重定向操作符,查看打印
+    test /dev/fd/63  # 结果,发现">(cat)"得到的文件名被当成echo命令的参数,从
+           # 而回显出来.此时,cat命令没有读取到任何输入.光标也是停在行首不动
+    john:~$echo "test" > >(pwd)  # 在">(pwd)"中,pwd命令不读取标准输入,但是
+    john:~$/home/john # echo命令的输出还是写到了">(pwd)"对应的文件里面,所以
+             # 打印结果中没有echo命令的输出,只有pwd命令的输出.
+    john:~$echo test > cat # 显然,"echo test > >(cat)" 和 "echo test > cat"
+    john:~$cat cat  # 的区别在于,第一个命令中的cat是指cat命令,第二种命令中
+    test   # 的cat被认为是一个名为"cat"的文件,而不被认为是cat命令.
+    john:~$echo test > (cat) # 且如果写为这种形式会报错
+    bash: 未预期的符号 `(' 附近有语法错误
+    \end{verbatim}
+
+    \subsection{单词分离}
+    shell扫描参数扩展,命令输出替换,算术扩展的结果,并对没有包含在双引号中的部分进行单词分离.\par
+    shell将\textbf{\$IFS}中的每一个字符都当作一个分隔符,并且使用这些字符将其他扩展的结果分割成单词.如果没有设置\textbf{IFS},或者它的值就是\textbf{\textless space\textgreater \textless tab\textgreater \textless newline\textgreater} (这是默认值),则位于上一个扩展结果前面和后面的的一系列\textless space\textgreater, \textless tab\textgreater, 和\textless newline \textgreater都会被忽略,且\textbf{IFS}中的一系列字符不位于开头或者结尾的用于划分单词.如果\textbf{IFS}有一个值,而不是用默认值,那么在单词开头和末尾前后的一系列的空白字符\textbf{space}和\textbf{tab}会被忽略,只要空白字符是在\textbf{IFS}的值中(一个\textbf{IFS}空白字符).\textbf{IFS}中的任何字符都不是\textbf{IFS}空白字符,随着任意邻近\textbf{IFS}的空白字符,划分开一个字段.一系列的\textbf{IFS}空白字符还是被当作分隔符.如果\textbf{IFS}的值是空,不会进行单词分离操作.\par
+    显式的空变量(''''或则会'')会被保留.从参数扩展得来的,没有值的,没有括起来的隐式空参数,会被移除.如果一个没有值的参数是双引号内扩展,会得到一个空变量,并被保留.\par
+    注意,如果没有扩展发生,就不会执行单词分离操作.
+    \begin{verbatim}
+    如上所述,单词分离是针对参数扩展,命令输出替换,算术扩展的结果来进行分割.
+    当没有扩展发生时,不会进行单词分离操作.
+    如果没有设置IFS变量,默认的分隔符就是<space><tab><newline>
+    john:~$unset IFS
+    john:~$echo a b c  # 即使没有设置IFS变量, echo命令所输出的结果还是用
+    a b c         # 空格分割开,并不会打印成"abc".
+
+    单词分离的作用举例如下:
+    john:~$a="tian              xia"
+    john:~$echo $a   # $a 扩展得到的结果没有用双引号括起来,则按照上面描述
+    tian xia   # 的规则,会进行单词分离,合并多个空格为一个空格.
+    john:~$echo "$a"   # 用双引号将 $a 括起来,按照上面描述的规则,将不会进行
+    tian              xia  # 单词分离,则输出结果中,还是保留多个空格.
+    john:~$a="      tian              xia      "
+    john:~$echo $a   # 扩展结果的前面的空格会被去掉
+    tian xia
+    john:~$echo "$a"
+          tian              xia     # 在这个#前面是空格
+    john:~$IFS=:   # 将 IFS 设置为单个字符':'.此时,空格不再是有效的分隔符
+    john:~$a="tian              xia"
+    john:~$echo $a  # 此时,由于 $a 没有用双引号括起来,但空格不再是IFS字符,
+    tian              xia  # 不会再将多个空格合并成一个空格.
+    john:~$echo "$a"  # echo "$a" 和 echo $a 的输出结果是一样的.
+    tian              xia
+    \end{verbatim}
+
+    \subsection{文件名扩展}
+    在单词分离之后,除非设置了\textbf{-f}选项,否则Bash会在每个单词中查找字符`*', `?', 和`\verb+[+'.如果出现这些字符的任意一个,这个单词会被看作一个模式,并替换成一系列按字母表顺序排序的,匹配这个模式的文件名.如果没有找到匹配的文件名,且shell的\textbf{nullglob}选项被禁用,这个单词会保留不变.如果设置了\textbf{nullglob}选项,且匹配不到,这个单词会被移除.如果设置了shell的\textbf{failglob}选项,且匹配不到,会输出一个错误信息且不执行该命令.如果shell的\textbf{nocaseglob}选项被开启,匹配时会不考虑字母字符的大小写.\par
+    当一个模式用于文件名扩展时,除非设置了shell的\textbf{dotglob}选项,否则`.'位于文件名开头或者随后紧跟着一个斜线的必须要显式匹配.当匹配一个文件名时,斜线字符必须总是显式匹配.换句话说,`.'字符没有被特殊对待.\par
+    \begin{verbatim}
+    在没有设置dotglob选项时,默认不匹配以.开头的文件名.要想匹配以.开头的文件
+    名,所给模式中必须显式包含这个`.'.例如ls .filename*
+    \end{verbatim}
+    查看"4.3.2小节 Shopt内置命令"中对\textbf{nocaseglob},\textbf{nullglob},\textbf{failglob},和\textbf{dotglob}选项的描述.
+    \begin{verbatim}
+    使用 shopt 命令的 -p 选项查看哪些选项被设置了.这四个选项默认都禁用.
+    john:~$shopt -p nullglob failglob nocaseglob dotglob
+    shopt -u nullglob
+    shopt -u failglob
+    shopt -u nocaseglob
+    shopt -u dotglob
+    \end{verbatim}
+    shell的\textbf{GLOBIGNORE}变量可以用来限制所匹配的文件名集合.如果设置了\textbf{GLOBIGNORE},如果每一个被匹配的文件名也匹配\textbf{GLOBIGNORE}中的其中一个模式,这个文件名将会从匹配的列表中移除.当设置了\textbf{GLOBIGNORE}且其值不为空时,文件名\textbf{.}和\textbf{..}总是被忽略.然而,设置\textbf{GLOBIGNORE}成一个非空值会导致启用shell的\textbf{dotglob}选项,所以其他以`.'开头的文件名将会被匹配.要达到原先忽略以`.'开头文件名的行为,让`.*'成为\textbf{GLOBIGNORE}的模式之一.当没有设置\textbf{GLOBIGNORE}时,\textbf{dotglob}选项会禁用.
+    \begin{verbatim}
+    john:~/source/project$declare -p GLOBIGNORE  # 默认情况下,GLOBIGNORE
+    bash: declare: GLOBIGNORE: 未找到  # 没有被设置
+    john:~/source/project$ls -a    # 可以看到,当前目录有一个以.开头的.tian
+    .  ..  atianb  .tian  tianxia  # 文件
+    john:~/source/project$ls *ti*  # 使用 *ti* 作为文件名扩展的模式,不会匹
+    atianb  tianxia   # 配到.tian文件,其开头的'.'必须显式指定.
+    john:~/source/project$ls .*ti*   # 显式指定开头的`.'字符,以配置.tian
+    .tian
+    john:~/source/project$GLOBIGNORE="test"  # 为GLOBIGNORE赋值.当该值不为
+    john:~/source/project$ls *ti* # 空时,启用dotglob选项,默认将匹配`.',即
+    atianb  .tian  tianxia # '*'这个模式也能匹配`.'字符,现在"*ti*"匹配.tian
+    john:~/source/project$GLOBIGNORE=".*"  # 如上所述,将.*设置为GLOBIGNORE
+    john:~/source/project$ls *ti*  # 的模式之一,在匹配的时候,将会忽略以.开
+    atianb  tianxia   # 头的文件名.
+    \end{verbatim}
+
+    \subsubsection{模式匹配}
+    出现在模式中的任何字符,除了下面描述的特殊模式字符之外,只匹配它本身.\textbf{NUL}字符不能出现在模式中.一个反斜线会转义随后的字符;用于转义的反斜线在匹配时会被丢弃.如果想从字面上匹配特殊模式字符,它们需要被括起来.\par
+    特殊模式字符具有如下的含义:
+    \begin{basedescript}{\desclabelstyle{\nextlinelabel}\desclabelwidth{2.5em}}
+    \item[*] 匹配任意字符串,包括空字符串.当启用了shell的\textbf{globstar}选项,且`*'被用在文件名扩展的上下文中,只由两个相邻`*'s组成的模式将会匹配所有文件,零个或多个目录以及子目录.如果紧跟着一个`/',两个相邻的`*'s将会只匹配目录和子目录.
+    \item[?] 匹配任意的单个字符
+    \item[[\dots]] 匹配所闭合字符中的任意一个.一对用连字符隔开的字符表示一个范围表达式;根据当前编码的校对顺序和字符集,任何顺序上位于这两个字符之间(包含这个两个字符)的字符都会被匹配.如果紧跟在`\verb+[+'后的第一个字符是`!'或者`\^{}',则没有被闭合的字符将会被匹配.一个`-'可以通过将它包含在集合的开始或者结束部分来被匹配(避免为认为是范围表达式的一部分).一个`\verb+]+'可以通过将它作为集合的第一个字符来被匹配.范围表达式中的字符排序次序是由当前编码和shell的\textbf{LC\_COLLATE}变量的值(如果设置了这个变量值的话)来决定.\par
+        例如,在默认的\textbf{C}编码中,`\verb+[a-dx-z]+'相当于`\verb+[abcdxyz]+'.很多编码按照字典顺序来分类字符,且在这些编码中,`\verb+[a-dx-z]+'通常并不相当于`\verb+[abcdxyz]+';例如,它可能会相当于`\verb+[aBbCcDdxXyYz]+'.为了获得方括号表达式内范围的传统解释,可以设置\textbf{LC\_COLLATE}或者\textbf{LC\_ALL}环境变量的值为`\textbf{C}',来强制使用\textbf{C}编码.\par
+        在`\verb+[+'和`\verb+]+'中,可以使用\verb+[:class:]+的语法来指定字符类别.其中,\emph{class}是下面在POSIX标准中定义类别之一:
+        \begin{center}
+            \begin{tabular}{c c c c c c c}
+                alnum & alpha & ascii & blank & cntrl & digit & graph \\
+                lower & print & punct & space & upper & word & xdigit \\
+            \end{tabular}
+        \end{center}
+        一个字符类别匹配任意属于该类别的字符.\textbf{word}字符类别匹配字母,数字,和`\_'.\par
+        在`\verb+[+'和`\verb+]+'内,能够使用\verb+[=c=]+语法来指定一个相等类别.该类别将匹配所有和字符\emph{c}具有相同校对权重(在当前编码中定义)的字符.\par
+        在`\verb+[+'和`\verb+]+'中,\verb+[.symbol.]+匹配这个校对符号\emph{symbol}.\par
+        如果使用shopt内置命令启用shell的\textbf{extglob}选项,一些扩展的模式匹配操作符将会被识别.在下面的描述中,一个\emph{pattern-list}是一串被`\textbar'分隔开的一个或多个模式.复合模式可以使用下面的一个或多个子模式来组成:
+        \begin{basedescript}{\desclabelstyle{\nextlinelabel}\desclabelwidth{2.5em}}
+        \item[?(pattern-list)] 匹配零个或一个所给模式
+        \item[*(pattern-list)] 匹配零个或多个所给模式
+        \item[+(pattern-list)] 匹配一个或多个所给模式
+        \item[@(pattern-list)] 匹配一个所给模式
+        \item[!(pattern-list)] 匹配所给模式之外的任何东西
+        \end{basedescript}
+    \end{basedescript}
+
+    \subsection{引用移除}
+    在执行上述的扩展之后,所有出现的,不是由上述扩展生成的,未括起来的`\textbackslash',`'',和`"'字符会被移除.
+
+    \section{重定向}
+    在执行一个命令之前,可以使用一种能够被shell解释的特殊记法来对该命令的输入和输出进行重定向.重定向也可以在当前shell执行环境中打开或关闭文件.下面描述的重定向操作符可以放在简单命令的前面,或者出现在简单命令的任何地方,或者跟在命令之后.重定向按照它们从左到右出现的顺序被处理.\par
+    每个重定向可以放一个文件描述符在它前面,或者放一个类似于\{vername\}形式的单词在前面.在这种情况下,对于除了\textgreater\&-和\textless\&-之外的其他重定向操作符,shell都会分配一个大于10的文件描述符并分配这个文件描述符的值给\{varname\}.如果前置\{varname\}在\textgreater\&-或者\textless\&-的前面,则由\emph{varname}的值所指定的文件描述符将被关闭.\par
+    在下面的描述中,如果省略了文件描述符数值,并且重定向操作符的第一个字符是`\textless',则这个重定向关联到标准输入(文件描述符 0).如果重定向操作符的第一个字符是`\textgreater',则这个重定向关联到标准输出(文件描述符 1).\par
+    除非另作说明,否则在下面描述中,重定向操作符之后的单词会进行大括号扩展,波浪号扩展,参数扩展,命令输出替换,算术扩展,引用移除,文件名扩展,和单词分离.如果它扩展得到超过一个以上的单词,Bash会报告一个错误.\par
+    注意,重定向的顺序很重要.例如,下面的命令
+    \begin{quote}
+        ls \textgreater dirlist 2\textgreater\&1
+    \end{quote}
+    重定向标准输出(文件描述符 1)和标准错误输出(文件描述符 2)到文件\emph{dirlist},而下面的命令
+    \begin{quote}
+        ls 2\textgreater\&1 \textgreater dirlist
+    \end{quote}
+    仅仅重定向标准输出到文件\emph{dirlist},因为在标准输出被重定向到\emph{dirlist}之前,标准错误输出就已经被复制到了标准输出上.
+    \begin{verbatim}
+    john:~/source/project$ls  # 可以看到,当前目录下并没有名为 "a" 的文件
+    atianb  tianxia
+    john:~/source/project$cat tianxia # 而tianxia文件里面的内容为空
+    john:~/source/project$ls a > tianxia 2>&1  # ls a会报错,这个命令先将标
+    john:~/source/project$cat tianxia # 准输出重定向到文件,再将标准错误输出
+    ls: 无法访问a: 没有那个文件或目录 # 重定向到标准输出,也重定向到tianxia
+    john:~/source/project$echo -n > tianxia # 清空tianxia的内容
+    john:~/source/project$cat tianxia 
+    john:~/source/project$ls a 2>&1 > tianxia
+    ls: 无法访问a: 没有那个文件或目录
+    john:~/source/project$cat tianxia  # tianxia里面的内容还是空的,标准错误
+    john:~/source/project$  # 输出没有重定向到tianxia
+    重定向会按照从左到右的顺序来执行,并不是将多个重定向命令整体放到一起执行
+    在"ls a 2>&1 > tianxia"这个命令中,先执行ls a命令,并报错,错误信息被写入
+    标准错误输出,接着标准错误输出被重定向到标准输出,此时标准输出还是关联到
+    终端,所以终端上显示出错误信息,最后,标准输出再被重定向到tianxia文件.之前
+    产生的错误信息已经被显示在终端上了,不会被重定向到tianxia文件.所以,这个
+    文件里面的内容还是空 (之前执行echo -n > tianxia命令清空了该文件的内容).
+    \end{verbatim}
+    当一些文件被用在重定向上时,Bash会特别对待它们.描述如下:
+    \begin{basedescript}{\desclabelstyle{\nextlinelabel}\desclabelwidth{2.5em}}
+    \item[/dev/fd/fd] 如果\emph{fd}是一个有效整数,文件描述符\emph{fd}会被复制.
+    \item[/dev/stdin] 文件描述符0会被复制.
+    \item[/dev/stdout] 文件描述符1会被复制.
+    \item[/dev/stderr] 文件描述符2会被复制.
+    \item[/dev/tcp/host/port] 如果\emph{host}是一个有效的主机名或者网络地址,且\emph{port}是一个整数端口号或者服务名,Bash尝试去打开一个TCP连接到对应的socket.
+    \item[/dev/udp/host/port] 如果\emph{host}是一个有效的主机名或者网络地址,且\emph{port}是一个整数端口号或者服务名,Bash尝试去打开一个UDP连接到对应的socket.
+    \end{basedescript}
+    打开或者创建文件失败会导致重定向失败.\par
+    使用大于9的文件描述符来进行重定向时必须谨慎,因为它们可能会和shell内部使用的文件描述符相冲突.
+
+    \subsection{重定向输入}
+    重定向输入的通用格式是:
+    \begin{quote}
+        \verb+[n]<word+
+    \end{quote}
+    \emph{word}扩展后得到一个文件名,重定向输入会在文件描述符\textbf{n}上打开这个文件,以供读取.如果没有指定\textbf{n},那么在标准输入(文件描述符 0)上打开这个文件.
+
+    \subsection{重定向输出}
+    重定向输出的通用格式是:
+    \begin{quote}
+        \verb+[n]>[|]word+
+    \end{quote}
+    \emph{word}扩展后得到一个文件名,重定向输出会在文件描述符\textbf{n}上打开这个文件,以供写入.如果没有指定\textbf{n},那么在标准输出(文件描述符 1)上打开这个文件.如果该文件尚不存在,它会先被创建;如果文件已经存在,它的大小会先被截断为0.\par
+    如果重定向操作符是`\textgreater',且\textbf{set}内置命令的\textbf{noclobber}选项被启用,则当\emph{word}扩展得到的名字对应的文件已经存在且是文本文件时,重定向输出将会失败.如果重定向操作是`\textgreater\textbar',或者重定向操作符是`\textgreater'且\textbf{noclobber}选项没有启用,则即使\emph{word}对应的文件名已经存在,还是会尝试进行重定向输出操作.
+
+    \subsection{追加重定向输出}
+    追加重定向输出的通用格式是:
+    \begin{quote}
+        \verb+[n]>>word+
+    \end{quote}
+    使用这种方式对输出进行重定向,会在文件描述符\textbf{n}上打开\emph{word}扩展后得到的名字对应的文件,以供追加写入.如果没有指定\textbf{n},那么会在标准输出(文件描述符 1)上打开.如果这个文件不存在,它会先被创建.如果文件已经存在,其原先的内容会被保留,新写入的数据追加到文件的末尾.
+    \begin{verbatim}
+    有追加重定向输出,但是没有追加重定向输入, "<<" 这种写法对应的Here文档.
+    实际上,没有追加重定向输入这个改变.
+    \end{verbatim}
+
+    \subsection{同时重定向标准输出和标准错误输出}
+    有两种格式可以同时重定向标准输出和标准错误输出:
+    \begin{quote}
+        \&\textgreater{}word
+    \end{quote}
+    和
+    \begin{quote}
+        \textgreater\$word
+    \end{quote}
+    这两种结构允许同时将标准输出(文件描述符 1)和标准错误输出(文件描述符 2)重定向到\emph{word}扩展所得名字对应的文件上.\par
+    在上面两种形式中,优先使用第一种.这在语义上相当于
+    \begin{quote}
+        \textgreater{}word 2\textgreater\&1
+    \end{quote}
+    第二种形式实际上是后面所描述的复制文件描述符的方式.
+
+    \subsection{同时追加重定向标准输出和标准错误输出}
+    同时追加重定向标准输出和标准错误输出的格式是:
+    \begin{quote}
+        \&\textgreater\textgreater{}word
+    \end{quote}
+    这在语义上相当于
+    \begin{quote}
+        \textgreater\textgreater{}word 2\textgreater\&1
+    \end{quote}
+    这种结构允许同时将标准输出(文件描述符 1)和标准错误输出(文件描述符 2)都追加到\emph{word}扩展所得名字对应的文件上.
+
+    \subsection{Here文档}
+    here文档的格式是:
+    \begin{quote}
+        \verb+<<[-]word+
+            here-document
+        delimiter
+    \end{quote}
+    这种类型的重定向指示shell从当前源读取输入,直到读取一行仅仅包含\emph{word} (不带尾随的空格)的行为止.在那个时候读到的所有行接着被当作一个命令的标准输入.\par
+    \emph{word}不会进行参数扩展,命令输出替换,算术扩展,或者文件名扩展.如果\emph{word}中的任意字符被括起来,那么\emph{delimiter}是对\emph{word}进行引用移除所得的结果,且here-document中的行不会被扩展.如果\emph{word}没有被括起来,here-document中的所有行会进行参数扩展,命令输出替换,和算术扩展.对后者来说,\textbf{\textbackslash newline}这个字符序列会被忽略,且`\textbackslash'必须用来引用`\textbackslash', `\$', 和``'字符.\par
+    如果这个重定向操作符是`\textless\textless{}-',则输出行行首的所有tab字符会被去掉,\emph{delimiter}所在的行也会去掉行首的tab字符.这个允许写在shell脚本内的here文档能够用一种自然的方式来缩进.
+
+    \subsection{Here字符串}
+    here文档有一个变种形式,如下:
+    \begin{quote}
+        \textless\textless\textless word
+    \end{quote}
+    \emph{word}会被扩展并用作命令的标准输入.
+
+    \subsection{复制文件描述符}
+    下面的重定向操作符
+    \begin{quote}
+        \verb+[n]<&word+
+    \end{quote}
+    用于复制输入文件描述符.如果\emph{word}扩展成一个或多个数字,被\emph{n}所表示的文件描述符会成为\emph{word}所表示文件描述符的一份拷贝.如果\emph{word}的数字没有指定一个为了输入而打开的文件描述符,将会产生一个重定向错误.如果\emph{word}评估得到`-',文件描述符\emph{n}会被关闭.如果没有指定\emph{n},则标准输入(文件描述符 0)会被使用.\par
+    相似的,下面的重定向操作符
+    \begin{quote}
+        \verb+[n]>&word+
+    \end{quote}
+    用来复制输出文件描述符.如果没有指定\emph{n},则标准输出(文件描述符 1)会被使用.如果\emph{word}中的数字没有指定一个为了输出而打开的文件描述符,将会产生一个重定向错误.作为一种特殊情况,当省略了\emph{n},且\emph{word}没有扩展成一个或多个数字,则标准输出和标准错误输出将会按照上面描述的方式进行重定向.
+    
+    \subsection{移动文件描述符}
+    下面的重定向操作符
+    \begin{quote}
+        \verb+[n]<&digit-+
+    \end{quote}
+    移动文件描述符\emph{digit}到文件描述符\emph{n},或者移动到标准输入(文件描述符 0),如果\emph{n}没有指定的话.\emph{digit}会在复制到\emph{n}之后被关闭.\par
+    相似的,下面的重定向操作符
+    \begin{quote}
+        \verb+[n]>&digit-+
+    \end{quote}
+    移动文件描述符\emph{digit}到文件描述符\emph{n},或者移动到标准输出(文件描述符 1),如果\emph{n}没有指定的话.
+
+    \subsection{打开可读可写的文件描述符}
+    下面的重定向操作符
+    \begin{quote}
+        \verb+[n]<>word+
+    \end{quote}
+    导致\emph{word}扩展所得名字对应的文件被打开,以供读写,打开后的文件描述符是\emph{n},或者是文件描述符 0 如果\emph{n}没有被指定的话.如果这个文件不存在,它会先被创建.
+
+    \section{执行命令}
+
+    \subsection{简单命令扩展}
+    当执行一个简单命令时,shell执行下述的扩展,赋值,和重定向,按照从左往右的顺序.\par
+    \begin{enumerate}
+        \item 被分析器标记为变量赋值(那些在命令名之前)和重定向的单词会被保存,以便后续处理.
+        \item 那些不是变量赋值或者重定向的单词会被扩展(参见"3.5小节 Shell扩展").如果扩展之后还有任意单词被保留,则第一个单词被认为是命令的名字,且剩余的单词是命令参数.
+        \item 按照上面描述的规则执行重定向操作.
+        \item 变量赋值语句在赋值给变量之前,会先对`='之后的文本会进行波浪号扩展,参数扩展,命令输出替换,算术扩展,和引用移除操作.
+    \end{enumerate}
+    如果没有命令名生成,则变量赋值语句影响当前shell环境.否则,被赋值的变量会被添加到所被执行命令的环境中,且不影响当前shell环境.如果任何赋值语句试图赋值给一个只读变量,会产生一个错误,且该命令会退出,退出状态码是一个非0值.\par
+    如果没有命令名生成,重定向被执行,但是不影响当前shell环境.一个重定向错误会导致该命令退出,退出状态码是一个非0值.\par
+    当扩展之后有一个命令名遗留,会按照下面描述的情况继续执行.否则,该命令退出.如果其中一个扩展包含一个命令输出替换,该命令的退出状态码是最后一个执行的命令输出替换的退出状态码.如果其中没有命令输出替换,该命令的退出状态码是0.
+
+    \subsection{命令查找和执行}
+    当一个命令已经被分成单词后,如果它产生一个简单命令和一个可选的参数列表,下列的操作会被执行.
+    \begin{enumerate}
+        \item 如果这个命令名不包含斜线,shell尝试去找到它.如果存在一个同名的函数,则会按照"3.3小节 Shell函数"描述的规则来调用该函数.即,在函数名,内置命令,外部命令中,函数具有最高的执行优先级.
+        \item 如果这个名字不匹配一个函数,shell会在它的内置命令列表查找该命令.如果找到一个匹配,则调用该内置命令.
+        \item 如果该名字既不是shell函数,也不是一个内置命令,且不包含斜线,Bash会查找\textbf{\$PATH}中的每一个元素,看是否有哪个目录包含一个同名的可执行文件.Bash使用一个hash表来记住所要执行文件的完整路径名,从而避免多次查找\textbf{PATH}.仅仅当hash表中找不到所给名字时,才会完整查找\textbf{\$PATH}中的所有目录.如果这个查找不成功,shell查找一个名为\textbf{comman的\_not\_found\_handle}的shell预定义哈数.如果这个函数存在,会用原先的命令和命令参数作为这个函数的参数来调用这个函数,且这个函数的退出状态码变成这个shell的退出状态码.如果这个函数没有被定义,shell打印一个错误信息,并且返回127这个状态码.
+        \item 如果查找成功,或者这个名字包含一个或多个斜线,shell在一个单独的执行环境中执行这个名字对应的程序.参数0被设置所给的名字,且这个命令的剩余参数被设置到所提供的参数列表中,如果有的话.
+        \item 如果由于这个文件不是一个可执行格式导致执行失败,且这个文件不是一个目录,它会被假设是一个shell脚本,且shell按照"3.8小节 shell脚本"中描述的规则来执行它.
+        \item 如果这个命令不是异步执行,shell会等待这个命令完成,并收集它的退出状态码.
+    \end{enumerate}
+
+    \subsection{命令执行环境}
+    shell会有一个执行环境,有下面所描述的部分组成:
+    \begin{itemize}
+        \item shell在调用时继承的已经打开的文件,如同提供给\textbf{exec}内置命令来进行重定向修改.
+        \item 被\textbf{cd}, \textbf{pushd}, \textbf{popd}命令所设置的当前工作目录,或者shell在调用时继承的当前工作目录.
+        \item 被\textbf{umask}命令所设置的文件创建掩码,或者shell在调用时继承的文件创建掩码.
+        \item 被\textbf{trap}命令所设置的当前陷阱.
+        \item 被变量赋值语句所设置的shell参数,或者被\textbf{set}内置命令设置的shell参数,或者从shell的父进程环境继承来的shell参数.
+        \item 在执行时定义的shell函数,或者继承自shell的父进程环境.
+        \item 在调用时(要么默认,要么通过命令行参数)所启用的选项,或者用\textbf{set}内置命令所启用的选项.
+        \item 被\textbf{shopt}命令所启用的选项.
+        \item 使用\textbf{alias}所定义的shell别名.
+        \item 各种各样的进程ID,包括那些后台进程的ID,\textbf{\$\$}的值,和\textbf{\$PPID}的值.
+    \end{itemize}
+    当执行的不是一个内置命令或者shell函数,而是一个简单命令时,这个简单命令会在一个单独的执行环境中被调用,这个单独的执行环境有下面描述的部分组成.除非另作说明,相关的值继承自shell.
+    \begin{itemize}
+        \item shell打开的文件,加上被重定向指定到这个命令的任意修改.
+        \item 当前工作目录.
+        \item 文件创建模式掩码.
+        \item 被标记为导出(export)的shell变量和函数,加上被导出到这个命令的变量,在环境中传递.
+        \item shell所捕捉的陷阱会重置为继承自shell父进程的值,且被shell忽略的陷阱也会被忽略.
+    \end{itemize}
+    一个被调用在单独环境的shell不能影响当前shell的执行环境.\par
+    命令输出替换,被圆括号组合起来的命令,和异步命令都是在子shell中调用,该子shell的环境复制自当前shell的环境,除了那些被shell捕捉的陷阱被重置为当前shell继承自它的父进程的值.作为管道命令的一部分被调用的内置命令也是在子shell环境中执行.子shell环境所进行的改动不能影响当前shell的执行环境.\par
+    被生成来执行命令输出替换的子shell会继承父shell设置的\textbf{-e}选项.当不处于POSIX模式时,Bash清除这样子shell中的\textbf{-e}选项.\par
+    如果一个命令后面跟着一个`\&',且作业控制没有激活,则这个命令的默认标准输入是一个空文件\textbf{/dev/null}.否则,被调用的命令继承所调用shell的文件描述符,如果被重定向修改一样.
+
+    \subsection{环境变量}
+    当一个程序被调用时,它会被提供一个名为\emph{environment}的字符数组.这是一系列的键值对,具有\textbf{name=value}的形式.\par
+    Bash提供几种方式来操作环境变量.在调用的时候,shell扫描它拥有的环境变量,并为每一个找到的环境变量名来创建一个参数,自动标记它为导出到子进程.被执行的命令继承这个环境变量.\textbf{export}和`\textbf{declare -x}'命令允许参数和函数添加到环境变量或者从环境变量中删除.如果环境变量的参数值被修改了,这个新的值成为环境变量的一部分,代替老的环境变量.任意被执行命令所继承的环境变量由shell的初始环境变量,可能被shell修改了值的环境变量,减去任意被\textbf{unset}和`\textbf{export -n}`命令所移除的键值对,加上任意由\textbf{export}和`\textbf{declare -x}'命令所添加的环境变量.\par
+    任何简单命令或者函数的环境变量可以将参数赋值语句置在它前面来暂时增加.这些赋值语句仅仅影响当前命令的环境变量.\par
+    如果设置了\textbf{-k}选项,则所有参数赋值语句会放在一个命令的环境变量中,不仅仅是那些前置了命令名的参数.\par
+    当Bash调用一个外部命令,`\$\_'这个变量被设置成这个命令的完整路径名,并传递到这个命令的环境变量中.
+
+    \subsection{退出状态码}
+    一个被执行命令的退出状态码是\emph{waitpid}系统调用函数的返回值,或者是和\emph{waitpid}等价的函数的返回值.退出状态码的取值范围是0到255.如下面所描述,shell可能会用大于125以上的值来表示特殊函数.shell内置命令和复合命令的退出状态同样被限制在这个范围内.在具体环境下,shell使用特殊值来指示特殊失败模式.\par
+    出于shell的目的,一个命令返回为0的退出状态码表示执行成功.一个非0的退出状态码表示失败.使用这个似乎反直觉地模式,是因为这是一种明确的方式来指示执行成功和多种多样的方式去指示多个失败模式.当一个命令终止于一个数值为\emph{N}的致命信号时,Bash使用\emph{128+N}作为退出状态码.\par
+    如果一个命令没有被找到,被创建来执行这个命令的子进程返回的状态码是127.如果一个命令被找到了,但是它不可执行,则返回状态码是126.\par
+    如果遇到了错误的扩展或者重定向,导致一个命令执行失败,退出状态码会大于0.\par
+    退出状态码可以被Bash条件命令和一些list结构所使用.\par
+    所有的Bash内置命令在执行成功时,会返回0;执行失败时,会返回一个非0的状态码,所以内置命令的返回码也能用在条件结构和list结构.所有内置命令会返回2这个退出状态码来指示错误的使用.
+
+    \subsection{信号}
+    当Bash是交互式,且缺乏任何陷阱时,它忽略SIGTERM (因此`kill 0'不能kill一个交互式shell),且\textbf{SIGINT}被捕获和处理(因此\textbf{wait}内置命令是可中断的).当Bash接收一个\textbf{SIGINT},它跳出任何正在执行的循环.就一切情况而论,Bash忽略\textbf{SIGQUIT}.如果作业控制有效,Bash忽略\textbf{SIGTTIN},\textbf{SIGTTOU},和\textbf{SIGTSTP}.\par
+    Bash执行的非内置命令具有信号处理集,该集合的值继承自shell,而shell继承自它的父进程.当作业控制没有在生效时,异步命令忽略\textbf{SIGINT}和\textbf{SIGQUIT}和这些继承的信号处理集合.作为命令输出扩展来执行的命令忽略由键盘生成的作业控制信号\textbf{SIGTTIN},\textbf{SIGTTOU},和\textbf{SIGTSTP}.\par
+    默认的,一旦shell收到\textbf{SIGHUP}会退出.在退出之前,一个交互式shell会再发送\textbf{SIGHUP}给所有作业,不管是正在运行的或者暂停的.暂停的作业会被发送\textbf{SIGCONT}以确保它能接收到\textbf{SIGHUP}.为了阻止shell发送\textbf{SIGHUP}信号给一个特定作业,可以使用\textbf{disown}内置命令从一个作业表中移除该作业,或者使用\textbf{disown -h}标记它不接收\textbf{SIGHUP}.\par
+    如果使用\textbf{shopt}设置了shell的\textbf{huponexit}选项,则当一个交互式登录shell退出时,Bash发送一个\textbf{SIGHUP}给所有作业.\par
+    如果Bash正在等待一个命令执行结束,且接收到一个被设置了处理陷阱的信号时,则直到这个命令执行结束之前,这个陷阱不会被执行.当Bash通过\textbf{wait}内置命令等待一个异步命令执行结束,则在接收到一个被设置了处理陷阱的信号时,将会导致\textbf{wait}内置命令会在处理陷阱被执行后立刻返回,且退出状态码会大于128.
+
+    \subsection{shell脚本}
+    一个shell脚本是一个包含了shell命令的文本文件.在调用Bash时,如果这个一个文件被用作第一个非选项的参数,且即没有提供\textbf{-c}选项和没有提供\textbf{-s}选项,Bash从这个文件中读取并执行命令,然后退出.这种操作模式创建一个非交互式shell.这个shell首先在当前目录下查找这个文件,如果没有找到再查找textbf{\$PATH}中的目录.\par
+    Bash运行一个shell脚本,会设置特殊参数\textbf{0}为这个文件的名字,而不是这个shell的名字,且其他的位置参数被设置成剩余的参数,如果有的话.如果没有提供附加参数,不会设置位置参数.\par
+    一个shell脚本可以使用\textbf{chmod}命令来打开可执行位,使它可被执行.当Bash在\textbf{\$PATH}中查找一个命令,且找到这样一个同名文件时,它产生一个子shell来执行它.换句话说,执行
+    \begin{quote}
+        filename arguments
+    \end{quote}
+    会等价于执行
+    \begin{quote}
+        bash filename arguments
+    \end{quote}
+    如果\textbf{filename}是一个可执行的shell脚本.这个子shell重新初始化它自身,以至于效果就像是一个新shell被调用来解释这个脚本,但有一个例外是,子shell会保持父进程所记住的该命令位置.\par
+    大部分Unix版本让这种方式成为操作系统命令执行机制的一部分.如果一个脚本的第一行开始于`\textbf{\#!}'这两个字符,则这个行剩余的部分指示这个命令的一个解释器.因此,你可以指定Bash, awk, Perl,或者其他解释器,并使用对应的程序语言来编写这个脚本文件的其余部分.\par
+    在脚本文件的第一行中,解释器的参数由跟着解释器名字后面的单个可选参数组成,这个参数后面跟在脚本文件名,脚本文件名后面再跟着其他参数.Bash将会执行这种形式,在那些自己不能处理的操作系统上.注意一些老式的Unix版本限制解释名和参数最多为32个字符.\par
+    Bash脚本通常开始于\textbf{\#! /bin/bash} (假设Bash被安装在\textbf{/bin}目录),此后将保证使用Bash来解释这个脚本,即使这个文件是在其他shell中执行.
+
+    \chapter{Shell内置命令}
+    内置命令由shell自身所包含.当一个内置命令的名字被用作一个简单命令的第一个单词时,shell直接执行这个命令,不会调用其他程序.内置命令是必要的,以便实现不可能或者不方便由外部应用程序实现的功能.\par
+    这个章节简单地描述Bash继承自Bourne Shell的内置命令,还有Bash独有的或者扩展过的内置命令.\par
+    有几个内置命令在其他章节中描述: 提供了Bash接口给作业控制工具的内置命令 (参见"7.2小节 作业控制内置命令"),目录堆栈 (参见"6.8.1小节 目录堆栈内置命令"), 命令历史 (参见"9.2小节 Bash历史内置命令), 和可编程补全工具 (参见"8.7小节 可编程补全工具).\par
+    大部分的内置命令已经被POSIX或者Bash扩展过.\par
+    % 下面使用 '-{}-' 来阻止 '--' 被合并在一起
+    除非另作说明,每个内置命令文档注明为接受以`-'开头的选项的,会接收`--'来表示所有选项的结束.其中, \textbf{:}, \textbf{true}, \textbf{false}, 和\textbf{test}内置命令不接受选项,并不对`-{}-'做特殊对待.\textbf{exit}, \textbf{logout}, \textbf{break}, \textbf{continue}, \textbf{let}, 和\textbf{shift}内置命令接受并处理以`-'开头的参数,并不要求`-{}-'.其他内置命令接受参数,但没有指定在接受到以`-'开头的选项参数为无效选项,此时需要`-{}-'来阻止这种解释.
+
+    \section{Bourne Shell内置命令}
+    下面的shell内置命令继承自Bourne Shell.这些命令按照POSIX标准所指定的要求来实现.
+    \begin{basedescript}{\desclabelstyle{\nextlinelabel}\desclabelwidth{2.5em}}
+    \item[: (一个冒号)]
+        \begin{quote}
+            \verb+: [arguments]+
+        \end{quote}
+        除了扩展参数和执行重定向之外,不做任何其他操作.其退出状态码是0.
+    \item[. (一个圆点)]
+        \begin{quote}
+            \verb+. filename [arguments]+
+        \end{quote}
+        在当前shell上下文环境中,从\emph{filename}参数读取并执行命令.如果\emph{filename}没有包含反斜线,会使用\textbf{PATH}变量来查找\emph{filename}.当Bash没有位于POSIX模式时,如果在\textbf{\$PATH}中找不到\emph{filename},则会在当前目录下查找\emph{filename}.如果提供了任意\emph{arguments},当\emph{filename}被执行时,它们会变成相应的位置参数.否则位置参数保持不变.其返回状态码是最后一个被执行命令的退出状态码,或者是0,如果没有命令被执行的话.如果\emph{filename}没有被找到,或者不能读,返回状态码是非0.这个内置命令等价于\textbf{source}内置命令.
+    \item[break]
+        \begin{quote}
+            break [n]
+        \end{quote}
+        从\textbf{for}, \textbf{while}, \textbf{until}, 或者\textbf{select}循环中退出.如果提供了\emph{n},从第\emph{n}个闭合的循环中退出.\emph{n}必须大于或等于1.其退出状态码是0,除非\emph{n}并不大于或等于1.
+    \item[cd]
+        \begin{quote}
+            \verb+cd [-L|[-P [-e]]] [directory]+
+        \end{quote}
+        改变当前工作目录到\emph{directory}.如果没有提供\emph{directory},会使用shell变量\textbf{HOME}的值.如果存在shell变量\textbf{CDPATH},它被用作一个查找路径.如果\emph{directory}开始于一个斜线,不会使用\textbf{CDPATH}.\par
+        \textbf{-P}选项意味着不跟随符号链接;默认情况下,或者使用\textbf{-L}选项时,会跟随符号链接.如果\textbf{-e}选项和\textbf{-P}选项一起使用,且在一次成功的目录改变后,当前工作目录不能被成功确定,\textbf{cd}将会返回一个不成功的状态.如果\emph{directory}是`-',它等价于\textbf{\$OLDPWD}.\par
+        如果从\textbf{CDPATH}中使用了一个非空目录名,或者`-'是第一个参数且目录改变成功时,新工作目录的绝对路径会被写入到标准输出.\par
+        如果目录被成功改变,其退出状态码是0,否则是非0.
+    \item[continue]
+        \begin{quote}
+            \verb+conitnue [n]+
+        \end{quote}
+        在一个闭合的\textbf{for},\textbf{while},\textbf{until},或者\textbf{select}循环中重新开始下一次迭代.如果提供了\emph{n},所执行的第\emph{n}个闭合循环会重新开始.\emph{n}必须大于或等于1.其退出状态码是0,除非\emph{n}即不大于也不等于1.
+    \item[eval]
+        \begin{quote}
+            \verb+eval [arguments]+
+        \end{quote}
+        所给的\emph{arguments}被连结在一起,成为一个命令,shell读取并执行这个命令,且该命令的退出状态码是\textbf{eval}的退出状态码.如果它没有参数或者仅仅是一个空参数,其退出状态码是0.
+        \begin{verbatim}
+        它并不是多个单词合并在一起,成为一个单词,只是将多个单词各自当成
+        命令和命令参数.举例如下:
+        $eval p wd    # eval 并不会将"p"和"wd"合并成"pwd"来执行,而是将"p"
+        bash: p: 未找到命令  # 当成一个命令名,将"wd"当成命令"p"的参数.
+        $eval pwd
+        /home/john
+        $eval ls -d
+        .
+        \end{verbatim}
+    \item[exec]
+        \begin{quote}
+            \verb+exec [-cl] [-a name] [command [arguments]]+
+        \end{quote}
+        如果提供了\emph{command},它代替这个shell,而不是创建一个新进程.如果提供了\textbf{-l}选项,shell放置一个波折号在传递给\emph{command}的第0个参数的开头处.这是\emph{login}程序使用的方式.\textbf{-c}选项导致\emph{command}在一个空环境被执行.如果提供了\textbf{-a}选项,shell将\emph{name}作为第0个参数传递给\emph{command}.如果没有指定\emph{command},重定向可能被用来影响当前shell环境.如果它没有重定向错误,其退出状态码是0;否则退出状态码是非0.
+    \item[exit]
+        \begin{quote}
+            \verb+exit [n]+
+        \end{quote}
+        退出当前shell,返回一个等于\emph{n}的状态码给shell的父进程.如果省略了\emph{n},退出状态码是最后一个被执行命令的退出状态码.在shell终止之前,会执行\textbf{EXIT}上的所有陷阱会被执行.
+    \item[export]
+        \begin{quote}
+            \verb+export [-fn] [-p] [name[=value]]+
+        \end{quote}
+        在当前环境中,标记的每一个\emph{name}被被传递给子进程.如果提供了\textbf{-f}选项,\emph{name}关联到shell函数;否则这些名字关联到shell变量.\textbf{-n}选项意味着不再标记每一个\emph{name}为导出状态.如果没有提供\emph{name},或者提供了\textbf{-p}选项时,一份被导出的名字会被显示.\textbf{-p}选项用一种可能被重用在输入上的形式来显示输出.如果一个变量名后面跟着\emph{=value},这个变量的值被设置成\emph{value}.\par
+        其退出状态码是0,除非一个提供了一个无效选项,其中一个命令不是有效的shell变量名,或者跟着\textbf{-f}选项后面的名字不是一个shell函数.
+    \item[getopts]
+        \begin{quote}
+            \verb+getopts optstring name [args]+
+        \end{quote}
+        \textbf{getopts}被shell脚本用来解析位置参数.\emph{optstring}包含被是被为选项的字符;如果一个字符后面跟着一个冒号,这个选项被期望跟着一个参数,该参数和选项之间用空白字符隔开.冒号 (`:')和问号(`?')不能用作选项字符.每次当它被调用时,\textbf{getopts}放置下一个字符到shell变量\emph{name}中,初始化\emph{name}如果它不存在的话,且下一个将被处理的参数索引会被放到变量\textbf{OPTIND}中.每次调用shell或者shell脚本时,\textbf{OPTIND}被初始化为1.当一个选项要求有一个参数时,getopts放置那个参数到变量\textbf{OPTARG}中.shell不会自动重置\textbf{OPTIND};在同一个shell调用中,多次执行getopts时,必须手动重置\textbf{OPTARG},如果一个新的集合被使用的话.\par
+        当遇到了选项末尾时,\textbf{getopts}以一个大于0的返回值退出.\textbf{OPTIND}被设置成第一个非选项参数的索引,且\emph{name}被设置成`?'.\par
+        \textbf{getopts}通常解析位置参数,但是如果\emph{args}中提供了更多参数,\textbf{getopts}会去解析这些参数.\par
+        \textbf{getopts}能够用两种方式来报告错误.如果\emph{optstring}的第一个字符是一个冒号,使用\emph{silent}错误报告方式.通常情况下,当遇到无效选项或者缺失选项参数时,操作诊断信息会被打印.如果变量\textbf{OPTERR}被设置为0,不会显示任何错误信息,即使\textbf{optstring}的第一个字符不是一个冒号.\par
+        如果遇到一个无效参数,\textbf{getopts}放置`?'到\emph{name}中,且如果不是安静错误报告模式,打印一个错误信息,且重置\textbf{OPTARG}.如果\textbf{getopts}是安静模式,所找到的选项字符被放置到\textbf{OPTARG},且不会打印诊断信息.\par
+        如果一个要求的参数没有被找到,且\textbf{getopts}不是安静模式,一个问号 (`?')被放置到\emph{name}中,重置\textbf{OPTARG},且打印一个诊断信息.如果\textbf{getopts}是安静模式,则放置一个冒号 (`:')到\emph{name}中,且\textbf{OPTARG}被设置所找到的选项字符.
+    \item[hash]
+        \begin{quote}
+            \verb+hash [-r] [-p filename] [-dt] [name]+
+        \end{quote}
+        每次\textbf{hash}被调用,它记住被\emph{name}参数指定的命令的完整路径名,以便它们在随后调用时不用被查找.这些命令会通过查找\textbf{\$PATH}中的目录列表来被找到.任何之前记住的路径名会被丢弃.\textbf{-p}选项抑制路径查找,且\emph{filename}被用作\emph{name}所在的位置.\textbf{-r}选项导致shell忘记所有记住的位置.\textbf{-d}选项导致shell忘记所记住的每一个\emph{name}的位置.如果提供了\textbf{-t}选项,每一个\emph{name}相应的完整路径名会被打印.如果\textbf{-t}后面提供了多个\emph{name}参数,会在对完整路径名进行hash之前打印\emph{name}.\textbf{-l}选项导致被显示的输出是一种可以被重用在输入的形式.如果没有提供残骸素,或者仅仅提供了\textbf{-l},所被记住的命令的信息会被打印.其退出状态码是0,除非\emph{name}没有被找到,或者提供了一个无效选项.
+    \item[pwd]
+        \begin{quote}
+            \verb+pwd [-LP]+
+        \end{quote}
+        打印当前工作目录的绝对路径名.如果提供了\textbf{-P}选项,所打印的路径不包含符号链接.如果提供了\textbf{-L}选项,所打印的路径将包含符号链接.其退出状态码是0,除非在决定当前工作目录的名字时遇到了一个错误,或者提供了一个无效选项.
+    \item[readonly]
+        \begin{quote}
+            \verb+readonly [-aAf] [-p] [name[=value]] ...+
+        \end{quote}
+        标记每一个\emph{name}为只读.这些\emph{name}的值在赋值之后不能再改变.如果提供了\textbf{-f}选项,每一个\emph{name}关联一个shell函数.\textbf{-a}选项意味着每一个\emph{name}指的是到一个索引数组变量;\textbf{-A}选项意味着每一个\emph{name}指的是到一个关联数组变量.如果同时提供了这两个选项,\textbf{-A}会更优先.如果没有提供\emph{name}变量,或者当提供了\emph{-p}选项时,所有只读变量的名字被会打印出来.其他选项能被用于限制一个只读变量集合的子集输出.\textbf{-p}选项导致被显示的输出是一种被用于输入的形式.如果一个变量名后面跟着\emph{=value},这个变量的值被设置为\emph{value}.其退出状态码是0,除非提供了一个无效选项,其中一个\emph{name}变量不是一个有效的shell变量名或者函数名,或者提供了\textbf{-f}选项且所给的名字不是一个shell函数.
+    \item[return]
+        \begin{quote}
+            \verb+return [n]+
+        \end{quote}
+        导致一个shell函数退出,且退出返回值\emph{n}.如果没有提供\emph{n},其退出状态码是函数中最后一个被执行命令的退出状态码.当一个脚本通过\textbf{.} (或者\textbf{source})内置命令来执行时,\textbf{return}也能用来终止该脚本的执行,该脚本的退出状态码是\emph{n}或者脚本内最后一个被执行命令的退出状态码.(当脚本通过这种方式来执行时,如果脚本内执行了\textbf{exit}语句,整个shell都会退出).在恢复函数或者脚本之后的执行前,会先执行任何关联到\textbf{RETURN}陷阱的命令.其退出状态码是非0,如果\emph{return}用在一个函数外部且不是通过\textbf{.}或者\textbf{source}来执行一个脚本时.
+    \item[shift]
+        \begin{quote}
+            \verb+shift [n]+
+        \end{quote}
+        移动\emph{n}左边的位置参数.位置参数\emph{n+1}{}\ldots{}\textbf{\$\#}会被重命名为\emph{\$1}{}\ldots{}\textbf{\$\#-n}.被数字\textbf{\$\#}到\textbf{\$\#-n+1}所表示的位置参数会被重置.\emph{n}必须是一个非负整数,且小于或等于\textbf{\$\#}.如果\emph{n}是0或者大于\textbf{\$\#},位置参数会保持不变.如果没有提供\emph{n},它被假设为1.其退出状态码是0,除非\emph{n}大于\textbf{\$\#}或者小于0,否则是非0.
+    \item[test/[]
+        评估一个条件表达式\emph{expr}.每一个操作符和操作数必须是一个单独参数.表达式有后面的"6.4小节 Bash条件表达式"所描述的基本元素组成.\textbf{test}不接受任何选项,它不接受且忽略一个-{}-参数来指示选项的结束.\par
+        当使用\verb+[+的形式时,该命令的最后一个参数必须是\verb+]+.\par
+        表达式可以使用下面的操作符来组合起来,按照优先级降序来描述.这个评估依赖于变量的数目,如下所述.操作符优先级被用在有五个或更多变量的情况.
+        \begin{basedescript}{\desclabelstyle{\nextlinelabel}\desclabelwidth{2.5em}}
+        \item[! expr] 如果\emph{expr}为假,评估为真.
+        \item[( expr )] 返回\emph{expr}表达式的值.这能用来重载各个操作符正常的优先级.
+        \item[expr1 -a expr2] 如果\emph{expr1}和\emph{expr2}都为真,评估为真.
+        \item[expr1 -o expor2] 如果\emph{expr1}或者\emph{expr2}有一个为真,评估为真.
+        \end{basedescript}
+        \textbf{test}和\verb+[+内置命令使用一系列基于变量个数的规则来评估条件表达式.
+        \begin{basedescript}{\desclabelstyle{\nextlinelabel}\desclabelwidth{2.5em}}
+            \item[0个参数] 这个表达式为假.
+            \item[1个参数] 当且仅当该参数不是空时,表达式为真.
+            \item[2个参数] 如果第一个参数是`\textbf{!}',当且仅当第一个参数是空,表达式才为真.如果第一个参数是一元条件操作符中的一个(参见"6.4小节 Bash条件表达式")时,如果这个一元测试为真,表达式就为真.如果第一个参数不是一个有效的一元操作符,这个表达式为假.
+            \item[3个参数] 下面的条件用来顺序列表中.如果第二个参数是二元条件操作符中的一个(参见"6.4小节 Bash条件表达式")时,这个表达式的结果是使用第一个参数和第三个参数作为二元测试参数得到的结果.当有三个参数时,`-a'和`-o'操作符被认为是二元操作符.如果第一个参数是`!',使用第二个和第三个参数来进行两个参数的测试,并会测试结果取反.如果第一个参数仅仅是`('且第三个仅仅是`)',使用第二个参数来进行一个参数的测试,测试结果就是表达式的值.否则,这个表达式为假.
+            \item[4个参数] 如果第一个参数`!',结果是由剩余参数所组成三个参数测试的结果的反码.否则,这个表达式被解析且基于上面所列举规则的优先级进行评估.
+            \item[5或者更多参数] 这个表达式被解析,且基于上面所列举规则的优先级来进行评估.
+        \end{basedescript}
+        当使用\textbf{text},或者`\verb+[+'时,`\textless'和`\textgreater'操作符按照\textbf{ASCII}顺序的字母表来排序.
+        \item[times]
+            \begin{quote}
+                times
+            \end{quote}
+            打印shell和它的子进程所占用的用户时间和系统时间.其退出状态码是0.
+        \item[trap]
+            \begin{quote}
+                \verb+trap [-lp] [arg] [sigspec ...]+
+            \end{quote}
+            当shell接收到信号\emph{sigspec}时,会读取并执行\emph{arg}中的命令.如果\emph{arg}不存在(且有一个\emph{sigspec}),或者等于`-',每一个指定信号的安排是重置为启动shell时,该信号原来的安排.如果\emph{arg}是空字符串,则每个由\emph{sigspec}指定的信号会被shell和shell所调用的命令忽略.如果\emph{arg}不存在,且提供了\textbf{-p}选项,shell打印关联每一个\emph{sigspec}的陷阱命令.如果没有提供任何参数,或者仅仅提供了\textbf{-p},\textbf{trap}打印一份关联到每一个信号码的命令,所打印的形式能够被用作shell输入.\textbf{-l}选项导致shell去打印一份信号名和它们所对应的数字.每一个\emph{sigspec}要么是信号名,要么是信号码.信号名忽略大小写,且\textbf{SIG}前缀是可选的.\par
+            如果一个\emph{sigspec}是\textbf{0}或者\textbf{EXIT},\emph{arg}会在shell退出时被执行.如果一个\emph{sigspec}是\textbf{DEBUG},则\emph{arg}命令的执行会早于在每一个简单命令,\textbf{for}命令,\textbf{case}命令,\textbf{select},每一个算术\textbf{for}命令,以及早于shell函数中第一个被执行的命令.参考对\textbf{shopt}内置命令的\textbf{extdebug}选项的描述.("4.3.2小节 Shopt内置命令")来了解它对\textbf{DEBUG}陷阱的影响.如果一个\emph{sigspec}是\textbf{RETURN},\emph{arg}命令会在每一个shell函数或者一个通过\textbf{.}或者\textbf{source}内置命令所执行脚本结束执行之前被执行.\par
+            如果一个\emph{sigspec}是ERR,\emph{arg}命令会被执行,在每一个简单命令有非0退出状态码时,但会让步于后面描述的条件.\textbf{ERR}陷阱不会被执行,如果这个失败的命令是立刻跟在一个\textbf{until},或者\textbf{while}关键字之后的部分命令列表,是跟在\textbf{if}或者\textbf{elif}保留字后面的部分测试语句,是一个通过\textbf{\&\&}或者\textbf{\textbar\textbar}列表来执行的部分命令,或者如果该命令的返回状态码被\textbf{!}反转过.这也是\textbf{errexit}选项所遵从的条件.\par
+            在进入shell时就被忽略的信号不能被捕获或者重置.在创建一个子shell时,在子shell环境中,被捕获但不设置为忽略的信号会被重置为它们原始的值.\par
+            其退出状态码是0,除非一个\emph{sigspec}没有指定一个有效的信号.
+        \item[umask]
+            \begin{quote}
+                \verb+umask [-p] [-S] [mode]+
+            \end{quote}
+            设置shell进程的文件创建掩码为\emph{mode}.如果\emph{mode}开始于一个数字,它被解释为一个十进制数字;如果不是,它被解释为一个符号模式掩码,类似于\textbf{chmod}命令所接受的形式.如果\emph{mode}被省略.会打印当前的掩码值.如果提供了\textbf{-S}选项,且没有\emph{mode}变量,使用符号格式来打印掩码值.如果提供了\textbf{-p}选项,且省略了\emph{mode},所输出形式一种可被重用于输入的形式.其退出状态码是0,如果模式被成功改变或者没有提供\emph{mode}变量,否则是非0.\par
+            注意,当模式被解释为一个十进制数字时,会从7中减去\textbf{umask}中的每一个数字.即,一个\textbf{022}的掩码得到的权限是\textbf{755}.
+        \item[unset]
+            \begin{quote}
+                \verb+unset [-fv] [name]+
+            \end{quote}
+            每一个名为\emph{name}的变量或者函数会被移除.如果没有提供选项,或者提供了\emph{-v}选项,每一个\emph{name}关联一个shell变量,如果提供了\textbf{-f}选项,该\emph{name}关联到shell函数,且这个函数定义会被移除.只读变量和函数不能被重置.其退出状态码是0,除非一个\emph{name}是只读的.
+    \end{basedescript}
+
+    \section{Bash内置命令}
+    这个章节描述Bash中独一无二或者已经扩展过的内置命令.其中部分命令在POSIX标准被指定.
+    \begin{basedescript}{\desclabelstyle{\nextlinelabel}\desclabelwidth{2.5em}}
+    \item[alias]
+        \begin{quote}
+            \verb+alias [-p] [name[=value] ...]+
+        \end{quote}
+        不带参数或者带了\textbf{-p}选项,\textbf{alias}在标准输出中打印一份别名列表,所打印的形式可被重用于输入.如果提供了参数,每一个\emph{name}会成为所给\emph{value}的别名.如果没有提供\emph{value},会打印这个别名的名字和对应的值.别名在"6.6小节 别名"中描述.
+    \item[bind]
+        \begin{verbatim}
+        bind [-m keymap] [-lpsvPSV]
+        bind [-m keymap] [-q function] [-u function] [-r keyseq]
+        bind [-m keymap] -f filename
+        bind [-m keymap] -x keyseq:shell-command
+        bind [-m keymap] keyseq:function-name
+        bind readline-command
+        \end{verbatim}
+        显示当前Readline (参见"第8章 命令行编辑") 键名和函数绑定,绑定一个键名序列到一个Readline函数或者宏,或者设置一个Readline变量.每一个非选项变量是一个命令,且它应该出现在Readline初始化文件中(参见"8.3小节 Readline初始文件"),但是每个绑定或者命令必须通过单独的变量传递;例如,`"\textbackslash{}C-x\textbackslash()C-r":re-read-init-file'.\par
+        如果提供了选项,它们具有如下含义:
+        \begin{basedescript}{\desclabelstyle{\nextlinelabel}\desclabelwidth{2.5em}}
+        \item[-m keymap] 使用\emph{keymap}作为影响接下来绑定的键盘映射.可接受的\emph{keymap}名是\textbf{emacs},\textbf{emacs-standard},\textbf{emacs-meta},\textbf{emacs-ctlx},\textbf{vi},\textbf{vi-move},\textbf{vi-command},和\textbf{vi-insert}.\textbf{vi}等价于\textbf{vi-command};\textbf{emacs}等价于\textbf{emacs-standard}.
+        \item[-l] 列举所有Readline函数的名字.
+        \item[-p] 显示Readline函数名和绑定,用一种能够用作输入或者Readline初始化文件的方式.
+        \item[-P] 列举当前函数名和该名字对应的绑定.
+        \item[-v] 显示Readline变量名和值,用一种能够用作输入或者Readline初始化文件的方式.
+        \item[-V] 列举当前Readline变量名和值.
+        \item[-s] 显示绑定到宏的Readline键名序列和它们所显示的字符串,用一种能够用作输入或者Readline初始化文件的方式.
+        \item[-S] 显示绑定到宏的键名序列和它们所显示的字符串.
+        \item[-f filename] 从\emph{filename}中读取键盘绑定.
+        \item[-q function] 查询哪个键可以调用名为\emph{function}的函数.
+        \item[-u function] 解除所有绑定到名为\emph{function}函数的键.
+        \item[-r keyseq] 移除所有\emph{keyseq}上的绑定.
+        \item[-x keyseq:shell-command] 无论何时输入了\emph{keyseq},都会导致\emph{shell-command}被执行.当\emph{shell-command}被执行时,shell设置\textbf{READLINE\_LINE}变量为Readline行缓冲区中的内容,且\textbf{READLINE\_POINT}变量为当前插入点的位置.如果所被执行命令改变了\textbf{READLINE\_LINE}或者\textbf{READLINE\_POINT}的值,新的值将被反映在编辑状态中.
+        \end{basedescript}
+        其退出状态码是0,除非提供了无效选项或者遇到了一个错误.
+    \item[builtin]
+        \begin{quote}
+        \verb+builtin [shell-builtin] [args]]+
+        \end{quote}
+        运行一个shell内置命令,传递\emph{args}给它,且返回它的退出状态码.当定义了一个shell函数和一个shell内置命令同名时,这就很有用,可以在函数内保留这个内置命令的功能.其退出状态码是非0,如果\emph{shell-builtin}不是一个shell内置命令.
+    \item[caller]
+        \begin{quote}
+            caller [expr]
+        \end{quote}
+        返回任意激活的子程序调用的上下文 (一个shell函数或者一个用\textbf{.}或者\textbf{source}内置命令执行的脚本).\par
+        不带\emph{expr},\textbf{caller}显示当前子程序调用的行号和文件名.如果提供了一个非负整数的\emph{expr},\textbf{caller}显示当前执行调用堆栈中对应这个整数的那个子程序的行号,子程序名,和源文件名.这个附加信息可能会被用到,例如打印一个堆栈跟踪表.当前帧的帧值是0.\par
+        其退出状态码是0,除非shell没有执行一个子程序调用或者\emph{expr}没有对应调用堆栈中的一个有效位置.
+    \item[command]
+        \begin{quote}
+            \verb+command [-pVv] command [arguments ...]+
+        \end{quote}
+        使用\emph{arguments}作为参数来运行\emph{command},且忽略任何名为\emph{command}的shell函数.只有shell内置命令或者通过搜索\textbf{PATH}找到的命令会被执行.如果有一个shell函数名为\textbf{ls},在函数内运行`\textbf{command ls}'将会执行外部命令\textbf{ls},而不是递归地调用这个函数.\textbf{-p}选项意味着使用\textbf{PATH}的默认值,即能保证找到所有的系统工具.在这种情况下,其退出状态码是127如果\emph{command}不能被找到或者发生了一个错误,否则就是\emph{command}的退出状态码.\par
+        如果提供了\textbf{-V}或者\textbf{-v},会打印对\emph{command}的一个描述.\textbf{-v}选项会显示一个单词,该单词指示调用\emph{command}的命令或者文件名;\textbf{-V}选项生成更多详细地描述.在这种情况下,其退出状态码是0,如果\emph{command}被找到的话,否则是非0.
+    \item[declare]
+        \begin{quote}
+            \verb+declare [-aAfFilrtux] [-p] [name[=value] ...]+
+        \end{quote}
+        声明变量,且赋予它们属性.如果没有提供\emph{name},会显示所有变量的值.\par
+        \textbf{-p}选项将会显示每一个\emph{name}的属性和值.当\textbf{-p}用在\emph{name}参数上时,其他的选项会被忽略.\par
+        当提供了\textbf{-p},且不带\emph{name}参数时,\textbf{declare}将会打印具有其他选项所指定属性的变量的属性和值.如果没有选项随着\textbf{-p}一起提供,\textbf{declare}将会显示所有shell变量的属性和值.\textbf{-f}选项会限制为只显示shell函数.\par
+        \textbf{-F}选项抑制显示函数定义;仅仅会显示函数名和属性.如果使用\textbf{shopt}启用了shell的\textbf{extdebug}选项,也会显示定义这个函数的源文件名和行号.\textbf{-F}实现了\textbf{-f}的功能.\par
+        \textbf{-g}选项强制在全局范围内创建或者修改变量,即使是在一个shell函数被执行\textbf{declare}.在其他情况情况下,它会被忽略.\par
+        下面的选项可用于限制显示特定属性的变量或者赋予变量属性:
+        \begin{basedescript}{\desclabelstyle{\nextlinelabel}\desclabelwidth{2.5em}}
+        \item[-a] 每一个\emph{name}是一个索引数组变量.
+        \item[-A] 每一个\emph{name}是一个关联数组变量.
+        \item[-f] 仅仅使用函数名.
+        \item[-i] 这个变量被当成整数看待;当这个变量被赋予一个值时会进行算术评估.
+        \item[-l] 当这个变量被赋予一个值时,所有大写字母会被转换为小写字母.大写属性被禁用.
+        \item[-r] 使\emph{names}只读.当这个变量被赋值或者重置过后,不能再被赋值.
+        \item[-t] 为每一个\emph{name}给予\textbf{trace}属性.被追踪的函数从调用它的shell继承\textbf{DEBUG}和\textbf{RETURN}陷阱.追踪属性对变量没有特殊函数.
+        \item[-u] 当这个变量被赋予一个值时,所有小写字母被转换为大写字母.小写属性被禁用.
+        \item[-x] 通过环境变量标记每一个\emph{name}被导出到随后的命令.
+        \end{basedescript}
+        使用`+'而不是`-'来关闭某个属性.有一个例外是`+a'不能用于摧毁一个数组变量,且`+r'将不会移除只读属性.当在一个函数内使用时,\textbf{declare}标记每一个\emph{name}为局部变量,就像\textbf{local}命令一样,除非使用了\textbf{-g}选项.如果一个变量名后面跟着\textbf{=value},这个变量的值被设置为\emph{value}.\par
+        其退出状态码是0,除非遇到一个无效选项,尝试使用`-f foo=bar'来定一个函数,尝试赋值给一个只读变量,尝试不使用复合赋值语法来赋值给一个数组变量 (参见"6.7小节 数组"),其中一个\emph{name}不是一个有效的shell变量名,尝试去关闭一个只读变量的只读状态,尝试去关闭一个数组变量的数组状态,或者尝试用\textbf{-f}选项去显示一个不存在的函数.
+    \item[echo]
+        \begin{quote}
+            \verb+echo [-neE] [arg ...]+
+        \end{quote}
+        输出所给的\emph{args},使用空格分开,终止于换行符.其退出状态码总是0.如果提供了\textbf{-n}选项,末尾的换行符会被禁止.如果提供了\textbf{-e}选项,就能够对下面的反斜线转义字符进行解释.\textbf{-E}选项禁用对这些转义字符的解释,即使在那些默认启用解释的系统上.shell的\textbf{xpg\_echo}选项能够用于动态决定\textbf{echo}是否默认就扩展这些转义字符.\textbf{echo}不将-{}-解释为选项的结尾.\par
+        \textbf{echo}解释下面的转义字符:
+        \begin{tabular}{lp{32em}}
+            \textbackslash a & 警报 (响铃) \\ \\
+            \textbackslash b & 退格 \\ \\
+            \textbackslash e \\
+            \textbackslash E & 一个转义字符 (不在ANCI C中) \\ \\
+            \textbackslash f & 换页符 \\ \\
+            \textbackslash n & 换行符 \\ \\
+            \textbackslash r & 回车符 \\ \\
+            \textbackslash t & 水平制表符 \\ \\
+            \textbackslash v & 垂直制表符 \\ \\
+            \textbackslash \textbackslash & 反斜线 \\ \\
+            \textbackslash 0nnn & 一个八位的字符,该字符的值等于八进制nnn的值(每个数字被扩展为三个位) \\ \\
+            \textbackslash xHH & 一个八位的字符,该字符的值等于十六进制HH的值(一个或者两个十六进制位) \\ \\
+            \textbackslash uHHHH & 一个Unicode (ISO/IEC 10646) 字符,该字符的值等于十六进制HHHH的值 (每个数字对应四个十六进制位) \\ \\
+            \textbackslash UHHHHHHHH & 一个Unicode (ISO/IEC 10646) 字符,该字符的值等于十六进制HHHHHHHH的值 (每个数字对应八个十六进制位) \\ \\
+            \textbackslash cx & 一个 Control-X 控制字符
+        \end{tabular}
+    \item[enable]
+        \begin{quote}
+            \verb+enable [-a] [-dnps] [-f filename] [name ...]+
+        \end{quote}
+        启用或禁用shell内置命令.禁用一个内置命令允许一个和shell内置命令同名的磁盘命令能够被直接执行,而不需要指定完整路径名,即使shell通常查找内置命令先于磁盘命令.如果使用了\textbf{-n},\emph{name}变成禁用.否则\emph{name}被启用.例如,为了执行通过\textbf{\$PATH}查找的\textbf{test}二进制文件,而不是shell的内置版本,可以输入`enable -n test'.\par
+        如果提供了\textbf{-p}选项,或者没有提供\emph{name}参数,会打印一份shell内置命令列表.不提供其他参数时,这个列表由所有启用的shell内置命令组成.\textbf{-a}选项意味着一份指示了每个内置命令是否被启用了的列表.\par
+        \textbf{-f}选项意味着从共享对象\emph{filename}中加载一个新的内置命令\emph{name},在那些支持动态加载的系统上.\textbf{-d}选项将会删除一个通过\textbf{-f}加载的内置命令.\par
+        如果没有提供选项,会显示一份shell内置命令的列表.\textbf{-s}选项限制\textbf{enable}显示POSIX指定的内置命令.如果\textbf{-s}随同\textbf{-f}一起使用,新增的内置命令成为特殊内置命令(参见"4.4小节 特殊内置命令").\par
+        其退出状态码是0,除非\emph{name}不是一个shell内置命令,或者从共享对象中加载一个新内置命令时遇到错误.
+    \item[help]
+        \begin{quote}
+            \verb+help [-dms] [pattern]+
+        \end{quote}
+        显示内置命令的帮助信息.如果指定了\emph{pattern},\textbf{help}显示所有匹配\emph{pattern}的内置命令的详细帮助信息,否则会打印一份内置命令列表.\par
+        如果提供了选项的话,它们具有如下的含义:
+        \begin{basedescript}{\desclabelstyle{\nextlinelabel}\desclabelwidth{2.5em}}
+        \item[-d] 为每一个\emph{pattern}显示一个简短地描述.
+        \item[-m] 为每一个\emph{pattern}显示一个类似manpage格式的描述.
+        \item[-s] 仅仅为每一个\emph{pattern}显示一个简短地使用概要.
+        \end{basedescript}
+        其退出状态码是0,除非没有命令匹配\emph{pattern}.
+    \item[let]
+        \begin{quote}
+            \verb+let expression [expression]+
+        \end{quote}
+        \textbf{let}内置命令允许对shell变量执行算术运算.每一个\emph{expression}会基于下面"6.5小节 shell算术运算"描述的规则进行评估.如果最后一个\emph{expression}评估为0,\textbf{let}返回1;否则返回0.
+    \item[local]
+        \begin{quote}
+            \verb+local [option] name[=name] ...+
+        \end{quote}
+        对于每一个参数,会创建一个名为\emph{name}的局部变量,且赋值为\emph{value}.其选项\emph{option}是任意能够被\textbf{declare}接受的选项.\textbf{local}仅仅能够在函数内使用;它使得\emph{name}这个变量的作用于被限制在该函数以及它的子进程内.其退出状态码是0,除非\textbf{local}在一个函数外使用,提供了一个无效的\emph{name},或者\emph{name}是一个只读变量.
+    \item[logout]
+        \begin{basedescript}{\desclabelstyle{\nextlinelabel}\desclabelwidth{2.5em}}
+            \verb+logout [n]+
+        \end{basedescript}
+        退出一个登录shell,返回\emph{n}这个状态码给shell的父进程.
+    \item[mapfile]
+        \begin{quote}
+            \verb+mapfile [-n count] [-O origin] [-s count] [-t] [-u fd] [-C callback] [-c quantum] [array]+
+        \end{quote}
+        将从标准输入读取到的行赋给索引数字变量\emph{array},或者从文件描述符\emph{fd}读取输入,如果提供了\textbf{-u}选项的话.\emph{MAPFILE}变量是默认数组\emph{array}.如果提供了选项的话,它们具有如下的含义:
+        \begin{basedescript}{\desclabelstyle{\nextlinelabel}\desclabelwidth{2.5em}}
+        \item[-n] 最多拷贝\emph{count}行.如果\emph{count}是0,则拷贝所有行.
+        \item[-O] 从数组下标\emph{origin}开始赋值给\emph{array}.默认的下标是0.
+        \item[-s] 丢失读取到的第一行.
+        \item[-t] 从每一行中移除末尾的换行符.
+        \item[-u] 从文件描述符\emph{fd}中读取行,而不是从标准输入读取.
+        \item[-C] 每次读取到\emph{quantum}行之后就回调评估\emph{callback}.\textbf{-c}选项指定\emph{quantum}.
+        \item[-c] 指定读取到多少行后就评估\emph{callback}.
+        \end{basedescript}
+        如果提供了\textbf{-C},但不提供\textbf{-c},默认的量子是5000.当\emph{callback}被评估时,下一个数组元素的下标和要被赋值给这个元素的行会被传递给它,作为附加参数.\emph{callback}会在读取到该行但是还没有赋值给数组元素之前被评估.\par
+        如果没有提供一个显式的\emph{origin},\textbf{mapfile}会在赋值给\emph{array}之前先清空它.\par
+        \textbf{mapfile}返回成功,除非一个无效的选项或者提供了选项,但\emph{array}无效或者不可赋值,或者\emph{array}不是一个索引数组.
+    \item[printf]
+        \begin{quote}
+            \verb+printf [-v var] format [arguments]+
+        \end{quote}
+        在\emph{format}控制的格式下,将格式化后的\emph{arguments}写入到标准输出.\textbf{-v}选项导致整个输出被赋给\emph{var}变量,而不是被打印到标准输出.\par
+        \emph{format}是一个字符串,包含了三种类型的对象:直接拷贝到标准输出的纯字符,先进行转换再拷贝到标准输出的转义字符序列,以及导致打印下一个\emph{arguments}的格式规范.\par
+        除了标准\textbf{printf(1)}(指/usr/bin/printf命令)支持的格式之外,\textbf{printf}解释下面的扩展:
+        \begin{basedescript}{\desclabelstyle{\nextlinelabel}\desclabelwidth{2.5em}}
+        \item[\%b] 导致\textbf{printf}在对应参数上扩展反斜线转义序列,(除了`\textbackslash{}c'终止输出,在`\textbackslash'',`\textbackslash"',和`\textbackslash{}?'中的反斜线不会被移除,且开始于`\textbackslash{}0'的十进制转义最多能包含4个数字).
+        \item[\%q] 导致\textbf{printf}使用一种能够被shell重用为输入的格式来显示对应的\emph{arguments}.
+        \item[\%(datefmt)T] 导致\textbf{printf}显示由\emph{datefmt}格式化生成的日期-时间字符串,其格式类似于\textbf{strftime(3)}的格式化字符串.其对应\emph{arguments}参数是一个整数,代表从公元纪年以来的秒数.两个特殊的参数值能够被使用: \textbf{-1}表示当前时间,\textbf{-2}表示当前shell已经被调用的时间.\par
+        \end{basedescript}
+        非字符串类型格式规范的参数被看作是C语言常量,但是允许前置加号或者减号,且如果前置字符是一个单引号或者双引号,其值是下一个字符的\textbf{ASCII}值.\par
+        \emph{format}被重用于消耗所有参数.如果\emph{format}要求的参数比所提供的多,则根据具体情况,剩余的格式规范会被视作提供了0或者空字符串.成功时,其退出状态码是0;失败是,是非0.
+    \item[read]
+        \begin{quote}
+            \verb+read [-ers] [-a array] [-d delim] [-i text] [-n nchars] [-N nchars] [-p prompt] [-t timeout] [-u fd] [name ...]+
+        \end{quote}
+        从标准输入读取一行,或者从\textbf{-u}选项的参数\textbf{fd}所指定的文件描述符中读取,且第一个单词被赋给第一个\emph{name},第二个参数被赋给第二个\emph{name},以此类推,剩余的单词和它们之间的分隔符被赋值给最后一个\emph{name}.如果从输入流读取的单词个数少于所给\emph{name}的个数,多余的\emph{name}被赋值为空值.\textbf{IFS}变量中的字符用于将一行分裂成单词.反斜线字符`\textbackslash'能被用于移除其后读取到的字符的特殊含义,且继续该行.如果没有提供\emph{name},读取到的行被赋给\textbf{REPLY}变量.其退出状态码是0,除非遇到了文件末尾(end-of-file),\textbf{read}超时(此时其退出状态码与大128),或者提供了一个无效的文件描述符给\textbf{-u}选项.\par
+        如果提供了选项,它们具有如下含义:
+        \begin{basedescript}{\desclabelstyle{\nextlinelabel}\desclabelwidth{2.5em}}
+        \item[-a aname] 单词会被连续赋给名为\emph{aname}的索引数组变量,数组下标开始于0.在赋值之前,会移除\emph{name}中的所有元素.其他\emph{name}参数会被忽略.
+        \item[-d delim] \emph{delim}中的第一个字符用于终止一个输入行,而不是用换行符.
+        \item[-e] Readline (参见"第8章 命令行编辑")被用来获取一行.Readline使用当前(或者默认的,如果行编辑之前没有激活的话)的编辑设置.
+        \item[-i text] 如果Readline被用于读取一行,在编辑开始之前,\emph{text}被放置到编辑缓冲区.
+        \item[-n nchars] \textbf{read}在读取到\emph{nchars}个字符之后就返回,而不是一直等到输入一整行.但是如果在读取\emph{nchars}个字符之前就遇到行分隔符,会遵从该分隔符的含义,结束读取.
+        \item[-N nchars] \textbf{read}在完全读取到\emph{nchars}个字符之后才返回,而不是一直等到输入一整行,除非遇到了\textbf{EOF}或者\textbf{read}超时.输入中遇到的行分隔符不会被特殊对待,且不会导致\textbf{read}在读取到\emph{nchars}个字符之前返回.
+        \item[-p prompt] 在尝试读取任意输入之前,显示\emph{prompt},不带末尾换行符.这个提示语仅仅在从终端读取输入时才会显示.
+        \item[-r] 如果提供了这个选项,反斜线不再充当一个转义字符.反斜线被当作输入行的一部分.特别的,一个反斜线-换行符序列不能用作一个行延续.
+        \item[-s] 静默模式.如果输入来自一个终端,字符串不会回显.
+        \item[-t timeout] 如果在\emph{timeout}秒内没有读到完整的一行,会导致\textbf{read}超时,且返回失败.\emph{timeout}可以是一个带有小数部分的十进制数字.只有\textbf{read}从终端,管道或者其他特殊文件读取输入时,该选项才有效;在读取一个普通文件时,它不起作用.如果\emph{timeout}是0,\textbf{read}会在所指定文件描述符上输入有效时返回0,否则返回失败.其退出状态码会大于128,如果超时的话.
+        \item[-u fd] 从文件描述符\emph{fd}中读取输入.
+        \end{basedescript}
+    \item[readarray]
+        \begin{quote}
+            \verb+ readarray [-n count] [-O origin] [-s count] [-t] [-u fd] [-C callback] [-c quantum] [array]+
+        \end{quote}
+        从标准输入读取一行,并赋值给索引数组变量\emph{array},或者从文件描述符\textbf{fd}中读取,如果提供了\textbf{-u}选项的话.\par
+        这是\textbf{mapfile}命令的同义词.
+    \item[source]
+        \begin{quote}
+            \verb+source filename+
+        \end{quote}
+        这是\textbf{.}命令的同义词.
+    \item[type]
+        \begin{quote}
+            \verb+type [-afptP] [name ...]+
+        \end{quote}
+        对于每一个\emph{name},指示当它作为命令名时,它会被怎么解释.\par
+        如果使用了\textbf{-t}选项,\textbf{type}打印`\textbf{alias}',`\textbf{function}',`\textbf{builtin}',`\textbf{file}',或者`\textbf{keyword}'的其中一个单词,分别对应一个别名,shell函数,shell内置命令,磁盘文件,或者shell保留字.如果\emph{name}没有被找到,不会打印任何东西,且\textbf{type}返回一个失败状态.\par
+        如果使用了\textbf{-p}选项,\textbf{type}要么返回将被执行的磁盘文件名,要么什么都不返回,如果\textbf{-t}返回的不是`\textbf{file}'的话.\par
+        \textbf{-P}选项强制在一个路径中查找每一个\emph{name},即使\textbf{-t}返回的不是`\textbf{file}'.\par
+        如果一个命令已经存储在hash表中,\textbf{-p}和\textbf{-P}打印hash后的值,不必须是在\textbf{\$PATH}中出现的第一个文件.\par
+        如果使用了\textbf{-a}选项,\textbf{type}返回所有包含一个名为\emph{file}的可执行文件的位置.这个包含了别名和函数,当且仅当\textbf{-p}选项没有同时使用.\par
+        如果使用了\textbf{-f}选项,\textbf{type}不会尝试去查找shell函数,就和\textbf{command}内置一样.\par
+        其退出状态码是0,如果所有\emph{name}都被找到,非0,如果任意一个没有被找到.
+    \item[typeset]
+        \begin{quote}
+            \verb+typeset [-afFrxi] [-p] [name[=value] ...]+
+        \end{quote}
+        \textbf{typeset}命令被提供来和Korn shell保持兼容;然而,在支持\textbf{declare}内置命令之后,它就被废弃了.
+    \item[ulimit]
+        \begin{quote}
+            \verb+ulimit [-abcdefilmnpqrstuvxHST] [limit]+
+        \end{quote}
+        \textbf{ulimit}可以控制shell所启动进程的可用资源,在那些支持这种控制的系统上.如果提供了选项,它们具有如下的含义:
+        \begin{basedescript}{\desclabelstyle{\nextlinelabel}\desclabelwidth{2.5em}}
+        \item[-S] 改变并报告关联到一个资源的软件限制.
+        \item[-H] 改变并报告关联到一个资源的硬件限制.
+        \item[-a] 报告当前的所有限制.
+        \item[-b] socket缓冲区最大尺寸.
+        \item[-c] core文件最大尺寸.
+        \item[-d] 进程数据段的最大尺寸.
+        \item[-e] 最高的调度优先级(``nice'').
+        \item[-f] shell和它的子进程可以写入的最大文件尺寸.
+        \item[-i] 待处理信号的最大数目.
+        \item[-l] 一个进程可以锁定的最大内存尺寸.
+        \item[-m] 最大的内存进驻尺寸 (大部分系统不遵守这个限制).
+        \item[-n] 可以打开的最大文件描述符数目 (大部分系统不允许设置这个值).
+        \item[-p] 管道缓冲区尺寸.
+        \item[-q] POSIX消息队列中最大的字节数目.
+        \item[-r] 最大的实时调度优先级.
+        \item[-s] 最大的栈尺寸.
+        \item[-t] 最大的CPU时间,以秒为单位.
+        \item[-u] 对单个用户而言,可用进程的最大数目.
+        \item[-v] shell (在某些系统上,包括它的子进程) 可用的最大虚拟内存尺寸.
+        \item[-x] 文件锁的最大数目.
+        \item[-T] 线程的最大数目.
+        \end{basedescript}
+        如果提供了\emph{limit},它就是所指定资源的新值;特定的\emph{limit}值\textbf{hard},\textbf{soft},和\textbf{unlimited}分别表示当前硬件限制,当前软件限制,和没有限制.当一个硬件限制被设置后,它不能被非超级用户来增加;一个软件限制最大可以增加到硬件限制的值.否则,所指定资源的当前软件限制值会被打印,除非提供了\textbf{-H}选项.当设置了新的限制,如果既不提供\textbf{-H},也不提供\textbf{-S}选项,会同时设置硬件限制和软件限制.如果没有提供选项,会假设提供了\textbf{-f}.取值以1024字节为单位,除了\textbf{-t}以秒为单位,\textbf{-p}以512字节的块作为单位,\textbf{-n}和\textbf{u}使用没有刻度的值.\par
+        其退出状态码是0,除非提供了一个无效选项或者参数,或者在设置新限制时遇到一个错误.
+    \item[unalias]
+        \begin{quote}
+            \verb+unalias [-a] [name ...]+
+        \end{quote}
+        从别名列表中移除每一个\emph{name}.如果提供了\textbf{-a},移除所有的别名.
+    \end{basedescript}
+
+    \section{修改shell行为}
+
+    \subsection{Set内置命令}
+    这个内置命令是如此复杂,以至于它有自己的章节.\textbf{set}允许用户改变shell选项的值,和设置位置参数,或者显示shell变量的名字和值.
+    \begin{quote}
+        set
+        \verb|set [-abefhkmnptnvxBCEHPT] [-o option-name] [argument ...]|
+        \verb|set [+abefhkmnptnvxBCEHPT] [+o option-name] [argument ...]|
+    \end{quote}
+    如果没有提供选项或者参数,\textbf{set}显示所有shell变量和函数的名字和值,基于当前区域编码进行排序,使用一种能够被重用为输入来设置或者重置当前变量集合.只读变量不能被重置.在POSIX模式下,只会列举shell变量.\par
+    当提供选项时,他们设置或者取消设置shell属性.各个选项的含义描述如下:
+    \begin{basedescript}{\desclabelstyle{\nextlinelabel}\desclabelwidth{2.5em}}
+    \item[-a] 标记所修改或者所创建的变量和函数被导出到后续命令的执行环境.
+    \item[-b] 立刻报告终端后台进程的状态,而不是先打印下一个主提示符.
+    \item[-e] 如果一个管道命令(可能由以一个简单命令组成),一个闭合在圆括号中的子shell命令,或者闭合在花括号中某个命令返回一个非0的状态,当前shell会立刻退出.如果失败的命令是立刻跟在\textbf{while}或者\textbf{until}关键字后面的命令列表的一部分时,或者是\textbf{\&\&},\textbf{\textbar\textbar}中执行的部分命令(不包括跟在最后一个\textbf{\&\&}或则会\textbf{\textbar\textbar}之后的命令),或者是一个管道中的最后一个命令,或者这个命令的退出状态码被\textbf{!}反转过时,shell不会退出.如果设置了\textbf{ERR}上的陷阱,它会在shell退出之前被执行.\par
+        这个选项分别应用在shell执行环境和每一个子shell环境中,且可能导致子shell在执行完所有命令之前就退出.
+    \item[-f] 禁用文件名扩展 (文件名替换).
+    \item[-h] 定位并记住(通过hash表)命令的位置,当它们被查找来执行时.这个选项默认开启.
+    \item[-k] 所有用赋值语句定义的变量会被放到一个命令的执行环境中,而不仅仅是那些位于命令名之前的变量.
+    \item[-m] 开启作业控制.
+    \item[-n] 读取命令但是不执行它们;它可被用于检查一个脚本的语法错误.这个选项在交互式shell中会被忽略.
+    \item[-o option-name] 设置和\emph{option-name}相一致的选项:
+        \begin{basedescript}{\desclabelstyle{\nextlinelabel}\desclabelwidth{2.5em}}
+        \item[allexport] 等同于\textbf{-a}.
+        \item[braceexpand] 等同于\textbf{-B}.
+        \item[emacs] 使用一个\textbf{emasc}方式的行编辑接口.这可会影响\textbf{read -e}的编辑接口.
+        \item[errexit] 等同于\textbf{-e}.
+        \item[errtrace] 等同于\textbf{-E}.
+        \item[functrace] 等同于\textbf{-T}.
+        \item[hashall] 等同于\textbf{-h}.
+        \item[histexpand] 等同于\textbf{-H}.
+        \item[histroy] 开启命令历史,在"9.1小节 Bash历史工具"中描述.这个选项在交互式shell中默认开启.
+        \item[ignoreeof] 在读到\textbf{EOF}后,一个交互式shell不会退出.
+        \item[keyword] 等同于\textbf{-k}.
+        \item[monitor] 等同于\textbf{-m}.
+        \item[noclobber] 等同于\textbf{-C}.
+        \item[noexec] 等同于\textbf{-n}.
+        \item[noglob] 等同于\textbf{-f}.
+        \item[nolog] 当前忽略.
+        \item[notify] 等同于\textbf{-b}.
+        \item[nounset] 等同于\textbf{-u}.
+        \item[onecmd] 等同于\textbf{-t}.
+        \item[physical] 等同于\textbf{-P}.
+        \item[pipefail] 如果设置,一个管道命令的退出值是最后一个(最右边)以非0状态退出的命令退出状态码,或者0,如果管道命令中的所有都退出成功.这个选项默认禁用.
+        \item[posix] 将Bash那些和POSIX标准不符的默认操作改成和标准一样.这是为了让Bash相当于标准的一个严格超集.
+        \item[privileged] 等同于\textbf{-P}.
+        \item[verbose] 等同于\textbf{-v}.
+        \item[vi] 使用\textbf{vi}方式的行编辑接口.这也会影响\textbf{read -e}所使用的编辑接口.
+        \item[xtrace] 等同于\textbf{-x}.
+        \end{basedescript}
+    \item[-p] 打开特权模式.在这种模式下,\textbf{\$BASH\_ENV}和\textbf{\$ENV}文件不会被处理,shell函数不会从环境变量中执行,且\textbf{SHELLOPTS},\textbf{BASHOPTS},\textbf{CDPATH}和\textbf{GLOBIGNORE}变量,如果它们出现在环境变量中的话,会被忽略.如果shell启动时,有效用户(组)ID不等于真实用户(组)ID,且没有提供\textbf{-p}选项,这些行为就会被执行,且有效用户ID被设置为真实用户ID.如果在启动时提供了\textbf{-p}选项,有效用户ID不会被重置.关闭这个选项导致有效用户和组ID被设置为真实用户和组ID.
+    \item[-t] 在读取并执行一个命令之后就退出.
+    \item[-u] 除了特殊参数`\@',`*'之外,在进行参数扩展时,将未设置的变量和参数当作错误对待.一个错误信息将会被打印到标准错误输出上,且非交互式shell会退出.
+    \item[-v] 打印读取到的shell输入行.
+    \item[-x] 在简单命令,\textbf{for}命令,\textbf{case}命令,\textbf{select}命令,算术\textbf{for}命令被扩展之后,被执行之前,打印这些命令和它们的参数或者相关联单词列表的跟踪信息.\textbf{PS4}这个变量的值会被扩展且生成的值会打印在命令和命令的扩展参数之前.
+    \item[-B] 这个shell将会执行花括号扩展.这个选项默认开启.
+    \item[-C] 阻止用`\textgreater',`\textless',和`\textless\textgreater'重定向来重写已经存在的文件.
+    \item[-E] 如果设置,任何在\textbf{ERR}上的陷阱会被继承到shell函数,命令替换,和在子shell环境中执行的命令.\textbf{ERR}陷阱在这些情况下通常不会继承.
+    \item[-H] 开启`!'类型的历史替换.这个选项在交互式shell中默认开启.
+    \item[-P] 如果设置,在执行类似于\textbf{cd}这样改变当前工作目录的命令时,不会跟随符号链接.改为使用物理目录.默认地,在执行改变当前工作目录的命令时,Bash跟随一连串的逻辑目录.\par
+        例如,假设\textbf{/usr/sys}是\textbf{/usr/local/sys}的符号链接,则:
+        \begin{verbatim}
+        $ cd /usr/sys; echo $PWD
+        /usr/sys
+        $ cd ..; pwd
+        /usr
+        如果设置了 -P 选项,则:
+        $ cd /usr/sys; echo $PWD
+        /usr/local/sys
+        $ cd ..; pwd
+        /usr/local
+        \end{verbatim}
+    \item[-T] 如果设置,任何设置在\textbf{DEBUG}和\textbf{RETURN}上的陷阱会继承到shell函数,命令替换,和在子shell环境执行的命令.\textbf{DEBUG}和\textbf{RETURN}陷阱在这些情况下通常不会继承.
+    \item[--] 如果没有变量跟在这个选项后面,则会重置位置参数.否则,位置参数被设置成\emph{arguments},即使它们中的部分参数以`-'开头.
+    \item[-] 表示已经到了选项末尾,倒是所有剩余变量被赋值给位置参数.\textbf{-x}和\textbf{-v}选项被关闭.如果后面没有变量,位置参数保持不变.
+    \end{basedescript}
+    使用`+'而不是`-'来关闭这些选项.这些选项也能用来调用shell.当前选项设置可以通过\textbf{\$-}查看.\par
+    剩余的\textbf{N}个变量是位置参数,且按照\textbf{\$1},\textbf{\$2},\ldots{}\textbf{N}的顺序被赋值.特殊变量\textbf{\#}被设置为\textbf{N}.\par
+    其退出状态码总是0,除非提供了一个无效选项.
+
+    \subsection{Shopt内置命令}
+    这个内置命令允许用户改变附加的shell可选行为.
+    \begin{quote}
+        shopt
+                \verb+shopt [-pqsu] [-o] [optname ...]+
+    \end{quote}
+    切换能够控制可选shell行为的变量的值.不带选项,或者带了\textbf{-p}选项,将会显示一份所有可设置选项的列表,并指示每个选项是否被设置.\textbf{-p}导致被显示的输出是一种能够被重用于输入的格式.其他选项具有下面的含义:
+    \begin{basedescript}{\desclabelstyle{\nextlinelabel}\desclabelwidth{2.5em}}
+    \item[-s] 开启(设置)每一个\emph{optname}
+    \item[-u] 禁用(取消设置)每一个\emph{optname}
+    \item[-q] 禁止普通输出;其退出状态码指示\emph{optname}是否被设置.如果\textbf{-q}后面跟着多个\emph{optname},其退出状态码是0,如果所有\emph{optname}都被开启;否则是非0.
+    \item[-o] 限制\emph{optname}的值为\textbf{set}内置命令的\textbf{-o}选项所定义的值.
+    \end{basedescript}
+    如果使用\textbf{-s}或者\textbf{-u}时不带\emph{optname}变量,显示的内容分别被限制为设置的或者没有设置的.\par
+    其他特别说明,\textbf{shopt}的选项默认被禁用(关闭).\par
+    在列举选项时,其退出状态码是0,如果所有\emph{optname}都被启用,否则是非0.当设置或者取消设置选项时,其退出状态码是0,除非该\emph{optname}不是一个有效的shell选项.\par
+    一份\textbf{shopt}选项的列表如下:
+    \begin{basedescript}{\desclabelstyle{\nextlinelabel}\desclabelwidth{2.5em}}
+    \item[autocd] 如果设置,当所输入的命令名是一个目录的名字时,这个命令会被执行,就好象它是\textbf{cd}命令的参数一样.这个选项只在交互式shell中有效.
+        \begin{verbatim}
+        john:~$shopt -s autocd
+        john:~$/opt
+        cd /opt
+        john:/opt$
+        \end{verbatim}
+    \item[cdable\_vars] 如果设置,当\textbf{cd}内置命令的参数不是一个目录名时,该参数被假设是一个变量名,且该变量的值就是要切换到的目录.
+    \item[cdspell] 如果设置,则\textbf{cd}命令的目录组件中的轻微拼写错误会被修正.错误检查包括颠倒顺序的字符,少了一个字母,和多了一个字符.如果一个订正被找到,则订正后的路径被打印,且继续执行这个命令.这个选项只在交互式shell中有效.
+    \item[checkhash] 如果设置,Bash在试图执行一个命令之前会先检查该命令是否存在于hash表中.如果一个hash过的命令已经不存在,会执行普通的路径搜索.
+    \item[checkjobs] 如果设置,Bash在退出一个交互式shell之前会列出任意暂停地,正在运行的作业的状态.如果任意作业正在运行,这会导致退出被推迟,直到尝试第二次退出为止,如果没有一个介于中间的命令的话(参见"第7章 作业控制").如果任意作业被暂停,shell总是会推迟退出.
+    \item[checkwinsize] 如果设置,Bash在执行每个命令之后会检查窗口大小,如果需要的话,会更新\textbf{LINES}和\textbf{COLUMNS}的值.
+    \item[cmdhist] 如果设置,Bash尝试保存一个多行命令的所有行到同一个命令历史记录里面.这允许方便的重新编辑一个多行命令.
+    \item[compat31] 如果设置,Bash将条件命令的`=~'操作符的行为改变到版本3.1,它将期望接收到被引起来的参数.
+    \item[compat32] 如果设置,在进行指定编码的字符串比较时,Bash将`\verb+[[+'条件命令的`\textless`和`\textgreater'操作符的行为改变到版本3.2.在bash-4.0之前的Bash版本使用ASCII校对和strcmp(3);bash-4.1和往后版本使用当前编码的校对序列和strcoll(3).
+    \item[compat40] 如果设置,在进行指定编码的字符串比较时,Bash将`\verb+[[+'条件命令的`\textless'和\textgreater'操作符的行为改变到4.0 (参见上一个条目),以及中断一个命令列表的效果.
+    \item[compat41] 如果设置,当Bash处于posix模式时,将双引号括起来的参数中的单引号视作特殊字符.这些单引号必须匹配(总数为偶数),且单引号中的字符被认为是括起来.这是POSIX模式在版本4.1之后的行为.默认的Bash行为和之前的版本保持一致.
+    \item[dirspell] 如果设置,Bash尝试在单词补全中拼写正确的目录名,如果初始提供的目录名不存在的话.
+    \item[dotglob] 如果设置,Bash把以`.'开头的文件名也包含在文件名扩展的结果中.
+    \item[execfail] 如果设置了这个选项,当一个非交互式shell不能执行\textbf{exec}内置命令的参数所指定的文件时,它将不会退出.一个交互式shell在\textbf{exec}失败时不会退出.
+    \item[expand\_aliases] 如果设置，别名按照"6.6小节 别名"中的描述来扩展.这个选项在交互式shell中默认开启.
+    \item[extdebug] 如果设置,开启调试器的扩展行为:
+        \begin{enumerate}
+            \item \textbf{declare}内置命令的\textbf{-F}选项为每一个函数名参数显示源文件名和行号.
+            \item 如果\textbf{DEBUG}陷阱中的命令返回非0值,则下一个命令会被跳过,不会被执行.
+        \item 如果\textbf{DEBUG}陷阱中的命令返回2这个值,且shell是在一个子进程中执行(一个shell函数或者一个通过\textbf{.}或者\textbf{source}内置命令执行的shell脚本,会模拟调用\textbf{return}.
+        \item \textbf{BASH\_ARGC}和\textbf{BASH\_ARGV}会按照后面的描述进行更新(参见"5.2小节 Bash变量").
+        \item 函数跟踪被启用:命令替换,shell函数,和使用\textbf{( command )}调用的子shell继承\textbf{DEBUG}和\textbf{RETURN}陷阱.
+        \item 错误跟踪被启用:命令替换,shell函数,和使用\textbf{( command)}调用的子shell继承\textbf{ERR}陷阱.
+        \end{enumerate}
+    \item[extglob] 如果设置,在上面"3.5.8.1小节 模式匹配"中描述的扩展模式匹配特性会被启用.
+    \item[extquote] 如果设置,\textbf{\$'string'}和\textbf{\$"string"}引用会在用双引号括起来的\textbf{\$\{parameter\}}扩展中被执行.这个选项默认开启.
+    \item[failglob] 如果设置,在文件名扩展时,无法正确匹配文件名的模式会导致一个扩展错误.
+    \item[force\_fignore] 如果设置,在\textbf{FIGNORE}shell变量中指定的后缀被导致该单词在进行单词补全时被忽略,即使这个被忽略的单词是唯一可能的补全.参见"5.2小节 Bash变量"来查看\textbf{FIGNORE}的描述.这个选项默认开启.
+    \item[globstar] 如果设置,在文件名扩展上下文中使用模式`**'将会匹配所有文件和零个或多个目录和子目录.如果这个模式后面跟着一个`/',只会匹配目录和子目录.
+    \item[gnu\_errfmt] 如果设置,所打印的shell错误消息将采用标准\textbf{GNU}错误哦消息格式.
+    \item[histappend] 如果设置,在shell退出时,历史命令列表会被追加到\textbf{HISTFILE}变量值对应的文件名中,而不是覆盖该文件.
+    \item[histreedit] 如果设置,且使用了Readline,用户被提供机会来重新编译一个失败的历史替换.
+    \item[histverify] 如果设置,且使用了Readline,历史替换的结果不会历史传递给shell分析器.作为代替,所生成的行被加载到Readline编辑缓冲区,以便后续修改.
+    \item[hostcomplete] 如果设置,且使用了Readline,Bash会尝试执行主机名补全,当一个包含了`\@'的单词正在被补全时(参见"8.4.6小节 命令的补全).这个选项默认开启.
+    \item[huponexit] 如果设置,Bash会在一个交互式登录shell退出后,发送\textbf{SIGHUP}给所有作业(参见"3.7.6小节 信号").
+    \item[interactive\_comments] 在一个交互式shell中,允许一个开始于'\#'的单词来指示这个单词和该行后面的所有字符被忽略.这个选项默认开启.
+    \item[lastpipe] 如果设置,且作业控制没有被激活,shell不是在当前shell的后台环境中运行管道的最后一个命令.
+    \item[lithist] 如果启用,且启用了\textbf{cmdhist}选项,内嵌有换行符的多行命令被包含在命令历史中,而不是用分号在可能的地方进行分隔.
+    \item[login\_shell] 当shell被当作登录shell来启用时,它设置这个选项(参见"6.1小节 调用Bash").这个选项不能给改变.
+    \item[mailwarn] 如果设置,则用来保存邮件的文件在Bash上一次检查过后被访问了,则会显示一个\textbf{"The mail in \emph{mail-file} has beend read"}消息.
+    \item[no\_empty\_cmd\_completion] 如果设置,且使用了Readline,在尝试在一个空行上进行补全时,Bash将不会尝试去检查\textbf{PATH}来查看可能的补全.
+    \item[nocaseglob] 如果设置,Bash在执行文件扩展名时,将会忽略所要匹配文件名的大小系.
+    \item[nocasematch] 如果设置,Bash在执行\textbf{case}或者\verb+[[+条件命令时,将会使用忽略大小写的方式来进行匹配.
+    \item[nullglob] 如果设置,Bash允许匹配不到文件的文件名模式被扩展为一个空字符串,而不是扩展为它们自身.
+    \item[progcom] 如果设置,可编程补全工具被启用.这个选项默认开启.
+    \item[promptvars] 如果设置,提示字符串在进行下面描述的扩展("6.9小节 打印一个提示字符串")之后,会再进行参数扩展,命令替换,算术扩展,和引号移除.这个选项默认开启.
+    \item[restricted\_shell] shell设置这个选项,如果它使用受限模式启动的话(参见"6.10小节 受限shlel").这个值不能被改变.它不会在执行完启动文件后被重置,允许启动文件去发现一个shell是否受限.
+    \item[shift\_verbose] 如果设置了这个值,\textbf{shift}内置命令在所移动的数目超过位置参数的个数时打印一个错误消息.
+    \item[sourcepath] 如果设置,\textbf{source}内置命令在\textbf{PATH}的目录中查找包含所给参数所的文件.这个选项默认开启.
+    \item[xpg\_echo] 如果设置,\textbf{echo}内置命令默认扩展反斜线转义序列.
+    \end{basedescript}
+    \par
+    在列举选项时,如果所有\emph{optnames}被启用,则退出状态码为0,否则是非0.当设置或重置选项时,退出状态码是0,除非一个\emph{optname}不是一个有效的shell选项.
+
+    \section{特殊内置命令}
+    处于历史原因,POSIX标准划分一个内置命令为特殊内置命令.当Bash在POSIX模式下执行时,特殊内置命令和其他内置命令有下面三点不同:
+    \begin{enumerate}
+        \item 在进行命令查找时,特殊内置命令会先于shell函数被找到.
+        \item 如果一个特殊内置命令返回一个错误状态,一个非交互式shell退出.
+        \item 置于命令之前的赋值语句会在命令执行结束后,在当前shell环境中继续生效.
+    \end{enumerate}
+    \par
+    当Bash没有执行在POSIX模式下时,这些内置命令表现得和其他Bash内置命令没有区别.Bash的POSIX模式在"6.11 Bash POSIX模式"中描述.\par
+    下面是POSIX的特殊内置命令:\par
+    \begin{tabular}{c c c c c c c}
+        break & : & . & continue & eval & exec & exit \\
+        export & readonly & return & set & shift & trap & unset
+    \end{tabular}
+
+    \chapter{Shell变量}
+    这章描述了Bash使用的shell变量.Bash自动为若干变量赋予默认值.
+    
+    \section{Bourne Shell变量}
+    Bash以和Bourne shell相同的方式来使用一些特定的变量.在一些情况下,Bash为这些变量赋予一个默认值.
+    \begin{basedescript}{\desclabelstyle{\nextlinelabel}\desclabelwidth{2.5em}}
+    \item[CDPATH] 一系列用冒号分隔开的目录,作为\textbf{cd}内置命令的查找路径.
+    \item[HOME] 当前用户的家目录,也是\textbf{cd}内置命令默认切换到的目录.这个变量的值也被用在波浪号扩展中.
+    \item[IFS] 一系列用于分隔字段的字符;作为扩展的一部分,shell在划分单词时用到该变量.
+    \item[MAIL] 如果这个变量被设置为一个文件名或者目录名,且\textbf{MAILPATH}变量没有设置,在指定文件或者邮件目录格式化目录中邮件到达时,Bash通知用户.
+    \item[MAILPATH] 一系列用冒号分隔的文件名,用于shell定期地检查新邮件.每个项可以指定在该邮件文件上有新邮件时要显示的消息,使用`?'将文件名和消息分隔开即可.当\textbf{\$\_}用在这个消息文本中时,它被扩展为当前邮件文件的名字.
+    \item[OPTARG] 上一个被\textbf{getopts}内置命令处理的选项参数的值.
+    \item[OPTIND] 上一个被\textbf{getopts}内置命令处理的选项参数的索引.
+    \item[PATH] 一系列用冒号分隔的目录名,shell用来查找命令.在\textbf{PATH}中,一个长度为0 (null) 的目录名指示当前工作目录.一个空目录名可以出现在两个相邻冒号中间,或者作为初始冒号,或者作为末尾冒号.
+    \item[PS1] 主提示字符串.默认值是`\textbackslash{}s-\textbackslash{}v\textbackslash{}\$'.参见"6.9小节 打印一个提示符",来查看那些在\textbf{PS1}显示之前被扩展的完整转义字符列表.
+    \item[PS2] 次要的提示字符串.默认值是`\textgreater'.
+    \end{basedescript}
+
+    \section{Bash变量}
+    这部分变量被Bash设置或者使用,但是其他shell通常不会特别对待它们.\par
+    一小部分被Bash使用的变量在不同的章节描述: 用于控制作业控制工具的变量(参见"7.3小节 作业控制变量").
+    \begin{basedescript}{\desclabelstyle{\nextlinelabel}\desclabelwidth{2.5em}}
+    \item[BASH] 启动当前Bash实例的文件的完整路径名.
+    \item[BASHOPTS] 一份用冒号分隔的被启用shell选项的名单.名单中的每一个单词都是\textbf{shopt}内置命令的\textbf{-s}选项的有效参数.出现在\textbf{BASHOPTS}中的选项是那些被`\textbf{shopt}'报告为'\textbf{on}'的选项.如果在Bash启动时,这个变量位于环境变量中,则在读取任何启动之前,名单中的每个shell选项将会被启用.这是个只读变量.
+    \item[BASHPID] 扩展为当前Bash进程的进程ID号.在特定环境下,它和\textbf{\$\$}有所不同,例如在那些没有请求Bash重新初始化的子shell中.
+    \item[BASH\_ALIASES] 一个关联数组变量,它的成员对应\textbf{alias}内置命令内部所维护的别名列表.添加到这个数组的元素被出现在别名列表中;复位数组元素胡导致该别名从别名列表中被移除.
+    \item[BASH\_ARGC] 一个数组变量,它的值是当前bash执行调用堆栈的每一栈帧的参数数目.当前子进程 (shell函数或者使用\textbf{.}或者\textbf{source}执行的脚本)的参数数目位于栈顶.当执行一个子进程时,传递给它的参数数目会被压进\textbf{BASH\_ARGC}中.shell仅仅在扩展调试模式下才设置\textbf{BASH\_ARGC}.
+    \item[BASH\_ARGV] 一个数组变量,包含当前bash执行调用堆栈中的所有参数.最近一个被调用子进程的最后一个参数位于栈顶;初始化调用的第一个参数位于栈底.当执行一个子进程时,所提供的参数被压进\textbf{BASH\_ARGV}.shell仅仅在扩展调试模式下才设置\textbf{BASH\_ARGV}.
+    \item[BASH\_CMDS] 一个关联数组,它的成员对应\textbf{hash}内置命令维护的内部hash命令表.添加到该数组的元素会出现在bash表中;复位该数组的元素会导致它从hash表中被移除.
+    \item[BASH\_COMMAND] 当前正在执行或者将要执行的命令,除非shell正在执行一个陷阱中的命令,此时,这个变量对应执行这个陷阱时正在执行的命令.
+    \item[BASH\_ENV] 如果设置了这个变量,当Bash被调用来执行一个shell脚本时,它的值被扩展并作为被读取的启动文件名,先于执行指定shell脚本.
+    \item[BASH\_EXECUTION\_STRING] 对应\textbf{-c}调用选项的命令参数.
+    \item[BASH\_LINENO] 一个数组变量,它的成员是对应每一个被调用的\emph{FUNCNAME}数组元素所在的源文件行号.\verb+$[BASH_LINENO[$i]}+是一个源文件(\verb-${BASH_SOURCE[$i+1]}-)中的行号,这个源文件对应被调用的\verb+${FUNCNAME[$i]}+(或者\verb+${BASH_LINENO[$i-1]}+,如果是在其他函数内引用).使用\textbf{LINENO}来获取当前行号.
+    \item[BASH\_REMATCH] 一个数组变量,它的成员由\verb+[[+条件命令的`=~'二元操作符来赋值.下标为0的元素是字符串中匹配整个正则表达式的部分.下标为n的元素是字符串中匹配第n个圆括号子表达式的部分.这是个只读变量.
+    \item[BASH\_SOURCE] 一个数组变量,它的成员是\textbf{FUNCNAME}数组变量中每个元素对应的函数名所在的源文件名.shell函数\verb+${FUNCNAME[$i]}+是定义在\verb+${BASH_SOURCE[$i]}+文件中,且由\verb-{$BASH_SOURCE[$i+1]}-文件来调用.
+    \item[BASH\_SUBSHELL] 每当产生一个子shell或者一个子shell环境时,这个变量就会往上递增.其初始值是0.
+    \item[BASH\_VERSINFO] 一个只读数组变量,它的成员保存当前Bash实例的版本信息.数组元素的值描述如下:
+        \begin{basedescript}{\desclabelstyle{\nextlinelabel}\desclabelwidth{2.5em}}
+        \item[BASH\_VERSINFO[0]] 主版本号 (release号).
+        \item[BASH\_VERSINFO[1]] 次版本号 (version号).
+        \item[BASH\_VERSINFO[2]] 补丁级别.
+        \item[BASH\_VERSINFO[3]] 编译版本号.
+        \item[BASH\_VERSINFO[4]] 释放状态 (例如, beta1).
+        \item[BASH\_VERSINFO[5]] \textbf{MACHTYPE}的值.
+        \end{basedescript}
+    \item[BASH\_VERSION] 当前Bash实例的版本号.
+    \item[BASH\_XTRACEFD] 如果设置为一个对应有效文件描述符的整数,Bash将启用`set -x'后生成的跟踪信息输出到该文件描述符中.这允许跟踪输出被分隔为诊断和错误信息.这个文件描述符会在\textbf{BASH\_XTRACEFD}被重置或者分配了一个新值后关闭.重置\textbf{BASH\_XTRACEFD}或者赋予一个空值给它,导致跟踪输出被发送到标准错误输出.注意,设置\textbf{BASH\_XTRACEFD}为2 (标准错误输出文件描述符),然后再重置它,将会导致标准错误输出被关闭.
+    \item[COLUMNS] \textbf{select}命令在打印选择列表时,使用该变量来决定终端宽度.当接收到\textbf{SIGWINCH}后,会被自动设置.
+    \item[COMP\_CWORD] 当前光标所在位置的单词索引被放到\textbf{\$\{COMP\_WORDS\}}中.这个变量只在被可编程补全工具调用的shell函数中有效.
+    \item[COMP\_LINE] 当前命令行.这个变量只在被可编程补全工具调用的shell函数或者外部命令中有效.
+    \item[COMP\_POINT] 当前光标位置的索引,相对于当前命令开始的位置.如果当前光标位置是在当前命令的末尾,这个变量的值等于\textbf{\$\#COMP\_LINE}.这个变量只在可编程补全工具调用的shell函数或者外部命令中有效.
+    \item[COMP\_TYPE] 设置为一个整数值,对应正在尝试补全导致被调用的补全函数的类型: \textbf{TAB},对应普通补全,`?',对应连续地tab之后列举补全信息,`!',对应在部分单词补全上的可选列表.这个变量只在可编程补全工具调用的shell函数或者外部命令中有效.
+    \item[COMP\_KEY] 用来调用当前补全函数的键名(或者键名序列的最后键名).
+    \item[COMP\_WORDBREAKS] 一个字符集合,在进行单词补全时,被Readline库视作单词分隔符.如果没有设置\textbf{COMP\_WORDBREAKS},它失去它的特殊属性,即使它随后又被重新设置.
+    \item[COMP\_WORDS] 一个数组变量,由当前命令行独立的单词组成.该行在Readline能够划分它时,被划分成单词,使用上面描述的\textbf{COMP\_WORDBREAKS}.这个变量只在可编程补全工具调用的shell函数中有效.
+    \item[COMPREPLY] 一个数组变量,由Bash读取自可编程补全工具调用的shell函数所生成的可能补全.
+    \item[COPROC] 一个数组变量,被创建来保存一个未命名协进程的输出文件描述符和输入文件描述符.
+    \item[DIRSTACK] 一个数组变量,包含当前目录栈的内容.出现在栈中的目录顺序和\textbf{dirs}内置命令所显示的顺序一致.赋值给这个数组的成员可用于修改已经在栈中的目录,但是\textbf{pushd}和\textbf{popd}内置命令必须用来添加或者移除目录.赋值给这个变量不会改变当前目录.如果没有设置\textbf{DIRSTACK},它失去它的特殊含义,即使随后又被重新设置.
+    \item[EMACS] 当shell带着`t'这个值启动,且Bash在环境变量中找到这个变量时,Bash假设这个shell运行在Emacsshell缓冲区中,并关闭行编辑.
+    \item[ENV] 类似于\textbf{BASH\_ENV};在shell在POSIX模式下被调用时会被用到.
+    \item[EUID] 当前用户的有效用户ID数字编号.这是个只读变量.
+    \item[FCEDIT] \textbf{fc}内置命令的\textbf{-e}选项默认使用的编辑器.
+    \item[FIGNORE] 一个用冒号分隔的后缀列表,会在文件名补全时被忽略.一个文件的后缀名匹配\textbf{FIGNORE}中的某个项时,它会被排除在文件名补全的匹配列表之外.一个示例的值是`.o:~'.
+    \item[FUNCNAME] 一个数组变量,包含当前执行调用栈中的所有shell函数名.下标为0的元素是当前正在执行的shell函数名.栈底元素(下标值最大的元素)是``main''.这个值仅在执行shell函数时才存在.为\textbf{FUNCNAME}赋值不会生效,且返回一个错误状态.如果\textbf{FUNCNAME}没有设置,它失去原有的特殊属性,即使随后再重置它.
+    \item[FUNCNEST] 如果设置一个大于0的数值,会定义最大的函数嵌套级别.函数调用超过这个嵌套级别将会导致当前命令中止.
+    \item[GLOBIGNORE] 一个冒号分隔的模式列表,定义了一系列被文件名扩展所忽略的文件名.如果一个文件名匹配于一个文件名扩展,而且也匹配于\textbf{GLOBIGNORE}的其中一个模式,它会从匹配列表中被移除.
+    \item[GROUPS] 一个数组变量,包含一个当前用户所在的组的列表.赋值给\textbf{GROUPS}不会生效,且返回一个错误状态.如果\textbf{GROUPS}没有设置,它失去原有的特殊属性,即使随后再重置它.
+    \item[histchars] 最多有三个字符,用于控制历史扩展,快速替换,和标记化 (参见"9.3小节 历史命令交互).第一个字符是历史命令扩展字符,即,这个字符表示一个历史扩展的开始,通常是`!'.第二个字符用于表示`快速替换',当它出现在一行的开头时,通常是`\^{}'.可选的第三个字符用于表示该行剩下的内容是注释内容,当它作为一个单词的第一个字符时,通常是`\#'.历史注释字符导致该行中的历史命令替换跳过剩余的字符.它不需要导致shell解析器对待该行的剩余部分为注释.
+    \item[HISTCMD] 当前命令的历史命令编号,或者是历史列表的索引.如果\textbf{HISTCMD}没有设置,它会失去它的特殊属性,即使随后重新设置它.
+    \item[HISTCONTROL] 一个冒号分隔的列表,其中的值用于控制历史命令列表如何保存命令.如果这个列表的值包含`\textbf{ignorespace}',则开始于空白字符的行将不会被保存在历史命令列表中.`\textbf{ignoredups}'这个值导致匹配上一个历史命令项的命令没有被保存.`\textbf{ignoreboth}'是`\textbf{ignorespace}'和`\textbf{ignoredups}'合起来的缩写.`\textbf{erasedups}'这个值导致历史命令列表中所有匹配当前命令的行被移除,在当前命令被保存之前.任何不在上述列表中值会被忽略.如果没有设置\textbf{HISTCONTROL},或者没有包含一个有效值,所有被shell分析器读取的行会被保存在历史命令列表中,取决于\textbf{HISTIGNORE}的值.多行复合命令的第二行和随后的行没有被测试,且被添加到历史命令,不管\textbf{HISTCONTROL}的值是什么.
+    \item[HISTFILE] 保存历史命令的文件名.默认值是\~{}/.bash\_history.
+    \item[HISTFILESIZE] 历史命令文件所包含最大的行数.当这个变量被赋予一个值,历史命令文件会被截断,如果需要的话,会移除最老的项,以包含小于指定行数的行.历史文件也会被截断为这个长度,一个交互式shell退出在将命令写入到该文件之后.默认值是500.
+    \item[HISTIGNORE] 一个冒号分隔的列表,用于决定哪些命令行会被保存到历史命令列表.每个模式停在每行的开始处,且必须匹配完整的行(没有隐式的`*'被追加).在执行\textbf{HISTCONTROL}所指定的检查后,每个模式会和行进行测试.除了常用的shell模式匹配字符之外,`\&'匹配上一个历史行,`\&'可以使用反斜线来转义;在尝试匹配之前,反斜线会被移除.多行复合命令的第二行和随后的行不会被测试,且被添加到历史命令列表,不管\textbf{HISTIGNORE}的值什么.\par
+        \textbf{HISTIGNORE}包含\textbf{HISTCONTROL}的功能.模式`\&'等同于\textbf{ignoredups},而模式`\verb+[]*+'等同于\textbf{ignorespace}.结合这两个模式,使用冒号分隔它们,会提供\textbf{ignoreboth}的功能.
+    \item[HISTSIZE] 历史命令列表保存的最多命令个数.默认值是500.
+    \item[HISTTIMEFORMAT] 如果这个变量被设置且不是空,它的值被用作\emph{strftime}的一个格式化字符串来打印\textbf{history}内置命令所显示的每个历史命令项所关联的时间戳.如果这个变量被设置,时间戳会被写入历史命令文件,以至于它们能在不同的shell会话之间被保存.这会使用历史命令注释字符来区分时间戳和其他历史命令行.
+    \item[HOSTFILE] 包含一个文件名,该文件具有和\textbf{/etc/hosts}相同的格式,会被shell需要需要一个主机名时被读取.列表中可能的主机名补全可以在shell运行过程中被改变;下次的主机名补全会在该值被改变后再尝试,Bash添加新文件中的内容到已经存在的列表.如果设置了\textbf{HOSTFILE},但是没有值,或者对应的不是一个可读文件,Bash尝试读取\textbf{/etc/hosts}文件来获取可能的主机名补全列表.当\textbf{HOSTFILE}没有设置,主机名列表被清空.
+    \item[HOSTNAME] 当前主机的名字.
+    \item[HOSTTYPE] 一个对正运行当前Bash的机器的描述字符串.
+    \item[IGNOREEOF] 包含shell在一个单独行中接收到\textbf{EOF}时的行为.如果设置,该值表示在shell将会退出之前,作为一个输入行的第一个字符,所能够被读取的连续\textbf{EOF}字符数目,如果这个变量存在但不是一个数字值(或者没有值),则默认值是10.如果这个变量不存在,则\textbf{EOF}表示对当前shell的输入结束.它仅在交互式shell中生效.
+    \item[INPUTRC] Readline的初始化文件名,覆盖默认的\textbf{\~/.inputrc}.
+    \item[LANG] 用于决定哪些没有被以\textbf{LC\_}开头的变量所指定的编码分类.
+    \item[LC\_ALL] 这个变量覆盖\textbf{LANG}的值和任意以其他\textbf{LC\_}变量所指定的编码分类.
+    \item[LC\_COLLATE] 这个变量决定了排序时的校对顺序,用在文件名扩展的结果中,并决定范围表达式,等值类,文件名扩展和模式匹配内的校对顺序的行为.
+    \item[LC\_CTYPE] 这个变量决定文件名扩展和模式匹配内部对字符的解释,和字符类别的行为.
+    \item[LC\_MESSAGES] 这个变量决定转换以`\$'前置的双引号字符串时的编码.(参见"3.1.2.4 编码转换"小节).
+    \item[LC\_NUMERIC] 这个变量决定数字格式化所用的编码类别.
+    \item[LINENO] 当前执行的脚本或者函数的行号.
+    \item[LINES] 被\textbf{select}命令用来决定打印选择列表时的列宽.在接收到一个\textbf{SIGWINCH}时被自动设置.
+    \item[MACHTYPE] 对正运行当前Bash的系统类型的一个完整描述字符串,使用标准的GNU cpy-company-system 格式.
+    \item[MAILCHECK] 在\textbf{MAILPATH}或者\textbf{MAIN}变量指定文件上,shell多久(单位是秒)检查一次邮件.默认值是60秒.当它到了检查邮件的时候,shell会在显示主提示符之前就检查.如果这个变量没有设置,或者没有设置为一个大于或等于0的数值,shell会禁用邮件检查.
+    \item[MAPFILE] 一个数组变量,被创建来保存当没有提供变量名被\textbf{mapfile}内置命令时,它所读取的文本.
+    \item[OLDPWD] 被\textbf{cd}内置命令设置的上一个工作目录.
+    \item[OPTERR] 如果设置为值1,Bash显示被\textbf{getopts}内置命令所生成的错误消息.
+    \item[OSTYPE] 一个描述Bash正在运行的操作系统字符串.
+    \item[PIPESTATUS] 一个数组变量,包含最近被执行的前台管道(可能只包含一个简单命令)的一系列进程的退出状态码.
+    \item[POSIXLY\_CORRECT] 当\textbf{bash}启动时,如果这个变量位于环境变量中,shell在读取启动文件之前就进入POSIX模式,就好像提供了\textbf{--posix}调用选项.如果它在shell运行时被设置,\textbf{bash}启动POSIX模式,就好象执行了\textbf{set -o posix}命令.
+    \item[PPID] 当前shell的父进程的进程ID号.这是个只读变量.
+    \item[PROMPT\_COMMAND] 如果设置,这个值被解释为一个命令,会在每次打印主提示符(\textbf{\$PS1})之前被执行.
+    \item[PROMPT\_DIRTRIM] 如果设置为一个大于0的数值,这个值被用作扩展\textbackslash{}w和\textbackslash{}W提示字符串转义后,被保留的尾部目录组件个数.被移除的字符串会被替换为省略号.
+    \item[PS3] 这个变量的值被用作\textbf{select}命令的提示符.如果这个变量没有设置,\textbf{select}的提示符是`\#?'.
+    \item[PS4] 这个变量作为设置\textbf{-x}选项后,在所回显命令行之前显示的提示符.\textbf{PS4}的第一个字符被复制多次,如果需要的话,来指示指令的多层级别.默认值是`+'.
+    \item[PWD] 被\textbf{cd}内置命令设置的当前工作目录路径.
+    \item[RANDOM] 每次这个变量被引用,会生成一个在0到32767之间的随机数.为这个变量赋予一个值,会为随机数生成器设置种子.
+    \item[READLINE\_LINE] Readline行缓冲区的内容,用在`\textbf{bind -x}'中.
+    \item[READLINE\_POINT] Readline行缓冲区的插入点位置,用在`\textbf{bind -x}'中.
+    \item[REPLY] \textbf{read}内置命令的默认变量.
+    \item[SECONDS] 这个变量扩展为当前shell启动后的秒数.给这个变量赋值,会重置原先被赋予的总数,且扩展后的值变成被赋予的值加上赋值之后的描述.
+    \item[SHELL] 当前shell的完整路径名被保存在这个环境变量中.当shell启动时,如果它没有被设置,Bash将当前用户的登录shell完整路径名赋给它.
+    \item[SHELLOPTS] 一个冒号分隔的已启用的shell选项列表.列表中的每个单词是\textbf{set}内置命令的\textbf{-o}选项的一个有效参数.出现在\textbf{SHELLOPTS}的是那些被\textbf{`set -o'}报告为`\textbf{on}'的选项.当Bash启动时,如果这个变量包含在环境变量中,列表中的每个shell选项将会被开启,在读取任何启动文件之前.这是个只读变量.
+    \item[SHLVL] 每次有新的Bash实例被启动时,这个变量的只会往上加1.这试图用来统计你的Bash shell嵌套的深度.
+    \item[TIMEFORMAT]
+    \end{basedescript}
+
+    \newpage
+\end{CJK}
+\end{document}

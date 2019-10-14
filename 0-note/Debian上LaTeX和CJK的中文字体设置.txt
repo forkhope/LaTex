@@ -1,0 +1,88 @@
+1. 利用新立得或apt安装texlive和latex_CJK相关的全部程序。
+
+# apt-get install texlive texlive-math-extra texlive-latex-base texlive-latex-extra texlive-latex-recommended texlive-pictures texlive-science texlive-bibtex-extra texlive-common latex-beamer
+
+# apt-get install latex-cjk-chinese
+
+# apt-get install latex-cjk-chinese-arphic-gbsn00lp latex-cjk-chinese-arphic-gkai00mp % 安装CJKutf8环境可用字体gbsn(宋体），gkai(楷体)
+
+此时即可使用latex的UTF8环境了，不过常用中文字体只有gbsn(宋体），gkai(楷体)两种。想用GBK环境，还需以下操作。
+
+2. 运行 $ fc-list :lang=zh-cn  查看debian安装的中文字体。没有需要的话，另外下载安装。常用的主要是WQY、宋体、仿宋、楷体、黑体、隶书、幼圆及其他需要的字体，查看字体的位置，一般在/usr/share/fonts/下的各子目录下。
+
+3.在/home下建立一个texmf的文件夹，设子目录为xx，
+
+$ mkdir /home/xx/texmf
+
+$ cd /home/xx/texmf
+
+然后下载gbkfonts工具包，解压缩，
+
+#chmod +x gbkfonts &&  cp gbkfonts /usr/local/bin
+
+用$gbkfonts 命令转化CJK需要的中文字体。例如
+
+$gbkfonts (路径)/simsun.ttc  song    %其中，song为将来latex的GBK环境中使用的字体。
+
+4.为dvips设置字体
+
+$mkdir dvips/config
+$mv cjk.map dvips/
+$cp /usr/share/texmf/dvips/config/config.*   dvips/config/
+
+添加一个文件config.cjk，内容是p +cjk.map
+
+5.更新字体库
+
+#cp -r texmf  /usr/local/share/texmf
+#mkdir /usr/local/share/texmf/fonts/trtype
+#cd /usr/local/share/texmf/fonts/trtype
+#cp /usr/share/fonts/trtype/chinese/sim* ./
+
+运行
+
+#texhash
+
+#updmap-sys
+
+#mktexlsr  % 更新字体map。
+
+6.测试吧。注意tex文件保存格式，utf8的，保存编码也为utf8;GBK亦然。
+
+UTF8环境
+
+\documentclass{article}
+\usepackage{CJKutf8}
+\begin{document}
+\begin{CJK}{UTF8}{gbsn}
+祝贺你, CJK 安装成功了!
+\end{CJK}
+\begin{CJK}{UTF8}{gkai}
+祝贺你, CJK 安装成功了!
+\end{CJK}
+\end{document}
+
+GBK环境
+
+\documentclass{article}
+\usepackage{CJK}
+\begin{document}
+\begin{CJK}{GBK}{hei}
+我是黑体
+\end{CJK}
+\begin{CJK}{GBK}{li}
+我是隶
+\end{CJK}
+\begin{CJK}{GBK}{song}
+我是宋
+\end{CJK}
+\begin{CJK}{GBK}{kai}
+我是楷
+\end{CJK}
+\begin{CJK}{GBK}{fang}
+我是仿
+\end{CJK}
+\begin{CJK}{GBK}{you}
+我是幼
+\end{CJK}
+\end{document}

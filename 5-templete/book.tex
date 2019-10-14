@@ -1,0 +1,11 @@
+如果LATEX文档比较大，可以考虑拆分为几个部分。比如编辑一本书的时候 可以将各章独立为chap1.tex，chap2.tex，chap3.tex，然后在主文件main.tex中包含进来
+\documentclass{book}\begin{document}\title{ALaTeXBook}\author{latex@blog}\date{}\maketitle\input{chap1}\input{chap2}\input{chap3}\end{document
+上面的\input命令可以改为\include，区别在于，\input可以放在导言区和正文区，包含的内容不另起一页；而\include只能放在正文区，包含的内容另起一页。另外CJK中还有\CJKinput和\CJKinclude命令。
+还有个问题就是，如何使得各章既可以被包含在另一个文件中也可以独立编译呢？方法是将main.tex和chap1.tex作如下修改
+%main.tex \documentclass{book}\def\allfiles{}\begin{document}\title{ALaTeXBook}\author{latex@blog}\date{}\maketitle\input{chap1}\input{chap2}\input{chap3}\end{document}
+%chap1.tex
+\ifx\allfiles\undefined\documentclass{article}\begin{document}
+\title{SomethinginTitle}\author{latex@blog}\date{}\maketitle\else
+\chapter{Chap1'sTitle}\fi
+\section{FirstSection}\section{SecondSection}\ifx\allfiles\undefined\end{document}\fi
+这样编写长文档就很方便和灵活了。
